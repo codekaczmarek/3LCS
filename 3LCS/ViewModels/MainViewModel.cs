@@ -324,12 +324,12 @@ namespace ThreeLCS.ViewModels
 
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
-        private async Task OpenRdp()
+        private void OpenRdp()
         {
             var env = SelectedCheRow;
             _logger.LogDebug("OpenRdp clicked. SelectedCheInstance={Instance}", env?.Instance?.DisplayName ?? "<null>");
             if (env == null) return;
-            await _navigation.ShowRdpLaunchAsync(env);
+            _ = _navigation.ShowRdpLaunchAsync(env);
         }
 
         [RelayCommand]
@@ -597,6 +597,20 @@ namespace ThreeLCS.ViewModels
         {
             var all = CheInstances.Concat(SaasInstances).ToList();
             StartOrStopPolling(all);
+        }
+
+        /// <summary>
+        /// Unconditionally starts the deployment poll loop regardless of current states.
+        /// Use this immediately after sending a start/stop request, before LCS has had
+        /// time to reflect the new transitional state.
+        /// </summary>
+        public void ForceDeploymentPolling()
+        {
+            CancelPolling();
+            var all = CheInstances.Concat(SaasInstances).ToList();
+            if (all.Count == 0) return;
+            _pollingTask = _taskService.Run("Deployment Polling",
+                ct => PollTransitionalStatesAsync(all, ct));
         }
 
         private void CancelPolling()

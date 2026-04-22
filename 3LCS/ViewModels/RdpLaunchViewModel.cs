@@ -119,7 +119,7 @@ namespace ThreeLCS.ViewModels
                         }
 
                         // Kick off MainViewModel's polling loop so MainWindow reflects state changes
-                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.TriggerDeploymentPolling());
+                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.ForceDeploymentPolling());
                     }
 
                     // ── Wait loop: 1 s text refresh, 3 s TCP probe ─────────────────

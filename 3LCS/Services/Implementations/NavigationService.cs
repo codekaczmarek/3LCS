@@ -126,13 +126,16 @@ namespace ThreeLCS.Services.Implementations
         public Task ShowAvailableKBsAsync(CloudHostedInstance instance) => Task.Run(() =>
             Application.Current.Dispatcher.Invoke(() => { var w = Resolve<AvailableKBsWindow>(); w.Instance = instance; w.ShowDialog(); }));
 
-        public Task ShowRdpLaunchAsync(EnvironmentViewModel env) => Task.Run(() =>
+        public Task ShowRdpLaunchAsync(EnvironmentViewModel env)
+        {
             Application.Current.Dispatcher.Invoke(() =>
             {
                 var w = Resolve<RdpLaunchWindow>();
                 w.Launch(env);
-                w.ShowDialog();
-            }));
+                w.Show();
+            });
+            return Task.CompletedTask;
+        }
 
         public Task ShowBackgroundTasksAsync() => Task.Run(() =>
             Application.Current.Dispatcher.Invoke(() =>
