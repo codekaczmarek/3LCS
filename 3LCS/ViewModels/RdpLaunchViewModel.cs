@@ -106,7 +106,7 @@ namespace ThreeLCS.ViewModels
                         await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.ForceDeploymentPolling());
                     }
 
-                    // Wait for EnvironmentViewModel.Instance.DeploymentState to reach Active.
+                    // Wait for EnvironmentViewModel.Instance.DeploymentState to reach a connectable state.
                     // The state is updated every 30 s by MainViewModel's shared polling loop.
                     var sw = Stopwatch.StartNew();
                     var maxWait = TimeSpan.FromMinutes(TimeoutMinutes);
@@ -120,13 +120,13 @@ namespace ThreeLCS.ViewModels
                         var elapsed = sw.Elapsed;
                         StatusText = $"Waiting for '{instance.DisplayName}'... {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s  |  LCS: {state}";
 
-                        if (state == DeploymentState.Active)
+                        if (IsReadyToConnect(state))
                         {
                             instance = _env.Instance;
                             break;
                         }
 
-                        // After the grace period, abort if the state is settled and not Active
+                        // After the grace period, abort if the state has settled into something we can't connect to
                         if (elapsed.TotalSeconds > StartGracePeriodSeconds && !IsTransitional(state))
                         {
                             StatusText = $"Start failed — environment entered '{state}' state.";
@@ -244,6 +244,15 @@ namespace ThreeLCS.ViewModels
             _cts.Cancel();
             Application.Current.Dispatcher.Invoke(() => _window?.Close());
         }
+
+        // "Starting" CHEs land in Finished when up; SaaS land in Active.
+        // Accept any settled state that isn't clearly down/broken.
+        private static bool IsReadyToConnect(DeploymentState state) =>
+            !IsTransitional(state) && state is not (
+                DeploymentState.Undefined or DeploymentState.Stopped or
+                DeploymentState.Paused    or DeploymentState.Disabled or
+                DeploymentState.Deleting  or DeploymentState.Deallocating or
+                DeploymentState.Deallocated or DeploymentState.Deleted);
 
         private static bool IsTransitional(DeploymentState state) =>
             state is DeploymentState.Starting or DeploymentState.Stopping
