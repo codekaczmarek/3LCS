@@ -52,6 +52,7 @@ namespace ThreeLCS
                     services.AddSingleton<IRdpService, RdpService>();
                     services.AddSingleton<IExportService, ExportService>();
                     services.AddSingleton<ILivenessService, LivenessService>();
+                    services.AddSingleton<IBackgroundTaskService, BackgroundTaskService>();
                     services.AddSingleton<INavigationService>(sp => new NavigationService(sp, sp.GetRequiredService<ILogger<NavigationService>>()));
 
                     // ViewModels
@@ -75,7 +76,7 @@ namespace ThreeLCS
                     services.AddTransient<RdpConnectViewModel>();
                     services.AddTransient<RdpLaunchViewModel>();
                     services.AddTransient<UpcomingUpdatesViewModel>();
-                    services.AddTransient<AboutViewModel>();
+                    services.AddTransient<BackgroundTasksViewModel>();
                     services.AddTransient<AssetLibrarySearchViewModel>();
 
                     // Windows
@@ -100,6 +101,7 @@ namespace ThreeLCS
                     services.AddTransient<RdpConnectWindow>();
                     services.AddTransient<RdpLaunchWindow>();
                     services.AddTransient<UpcomingUpdatesWindow>();
+                    services.AddTransient<BackgroundTasksWindow>();
                     services.AddTransient<AssetLibrarySearchWindow>();
                 })
                 .Build();

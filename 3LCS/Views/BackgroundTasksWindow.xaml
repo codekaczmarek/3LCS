@@ -1,0 +1,112 @@
+<Window x:Class="ThreeLCS.Views.BackgroundTasksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:ThreeLCS.Models"
+        Title="Background Tasks" Height="340" Width="660"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        ResizeMode="CanResize">
+    <Window.Resources>
+
+        <!-- Status colour converter via Style + DataTriggers -->
+        <Style x:Key="StatusBadge" TargetType="Border">
+            <Setter Property="CornerRadius"  Value="3"/>
+            <Setter Property="Padding"       Value="6,2"/>
+            <Setter Property="Background"    Value="#1E90FF"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="Completed">
+                    <Setter Property="Background" Value="#107C10"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="Faulted">
+                    <Setter Property="Background" Value="#C42B1C"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="Cancelled">
+                    <Setter Property="Background" Value="#767676"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <DataGrid Grid.Row="0"
+                  ItemsSource="{Binding Tasks}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  SelectionMode="Single"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column">
+
+            <DataGrid.Columns>
+
+                <!-- Status badge -->
+                <DataGridTemplateColumn Header="Status" Width="90" CanUserSort="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type models:ManagedTask}">
+                            <Border Style="{StaticResource StatusBadge}" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding Status}" Foreground="White"
+                                           FontSize="11" FontWeight="SemiBold"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Name -->
+                <DataGridTextColumn Header="Task" Binding="{Binding Name}" Width="200"/>
+
+                <!-- Status message -->
+                <DataGridTextColumn Header="Details" Binding="{Binding StatusMessage}" Width="*"/>
+
+                <!-- Started at -->
+                <DataGridTextColumn Header="Started"
+                                    Binding="{Binding StartedAt, StringFormat=HH:mm:ss}"
+                                    Width="70"/>
+
+                <!-- Cancel button -->
+                <DataGridTemplateColumn Header="" Width="70" CanUserSort="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type models:ManagedTask}">
+                            <Button Content="Cancel"
+                                    FontSize="11"
+                                    Padding="6,2"
+                                    IsEnabled="{Binding Status, Converter={StaticResource BoolToVis}}"
+                                    Command="{Binding DataContext.CancelTaskCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Status}" Value="Running">
+                                                <Setter Property="IsEnabled" Value="True"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status}" Value="Completed">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status}" Value="Faulted">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status}" Value="Cancelled">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <TextBlock Grid.Row="1" Margin="0,10,0,0"
+                   Text="Tasks disappear 4 seconds after they finish."
+                   Foreground="Gray" FontSize="11"/>
+    </Grid>
+</Window>

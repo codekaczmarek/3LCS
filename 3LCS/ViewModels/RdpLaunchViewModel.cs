@@ -21,9 +21,10 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsCredentialsService _credentialsService;
         private readonly ISettingsService _settings;
         private readonly MainViewModel _mainViewModel;
+        private readonly IBackgroundTaskService _taskService;
         private readonly ILogger<RdpLaunchViewModel> _logger;
 
-        private CancellationTokenSource? _cts;
+        private ManagedTask? _managedTask;
 
         [ObservableProperty] private string _statusText = "Initialising...";
         [ObservableProperty] private bool _isBusy = true;
@@ -54,12 +55,14 @@ namespace ThreeLCS.ViewModels
             ILcsCredentialsService credentialsService,
             ISettingsService settings,
             MainViewModel mainViewModel,
+            IBackgroundTaskService taskService,
             ILogger<RdpLaunchViewModel> logger)
         {
             _envService = envService;
             _credentialsService = credentialsService;
             _settings = settings;
             _mainViewModel = mainViewModel;
+            _taskService = taskService;
             _logger = logger;
         }
 
@@ -68,8 +71,9 @@ namespace ThreeLCS.ViewModels
             _env = env;
             _instance = env.Instance;
             _window = window;
-            _cts = new CancellationTokenSource();
-            _ = RunAsync(_cts.Token);
+            _managedTask = _taskService.Run(
+                $"RDP Connect: {env.Instance.DisplayName}",
+                RunAsync);
         }
 
         private async Task RunAsync(CancellationToken ct)
@@ -273,7 +277,7 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private void Cancel()
         {
-            _cts?.Cancel();
+            _managedTask?.Cancel();
             Application.Current.Dispatcher.Invoke(() => _window?.Close());
         }
 

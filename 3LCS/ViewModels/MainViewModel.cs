@@ -32,15 +32,16 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsAuthService _authService;
         private readonly ILcsSessionService _sessionState;
         private readonly ILivenessService _livenessService;
+        private readonly IBackgroundTaskService _taskService;
         private readonly ILogger<MainViewModel> _logger;
         private bool _autoLoginInProgress;
-        private CancellationTokenSource? _livenessCts;
-        private CancellationTokenSource? _pollingCts;
-        private CancellationTokenSource? _rdpCts;
-        private CancellationTokenSource? _autoRefreshCts;
+        private ManagedTask? _livenessTask;
+        private ManagedTask? _pollingTask;
+        private ManagedTask? _autoRefreshTask;
         private readonly Dictionary<string, LivenessStatus> _livenessCache = new();
 
         public ILcsApiMonitorService ApiMonitor { get; }
+        public IBackgroundTaskService TaskService { get; }
 
         [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _cheInstances = new();
         [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _saasInstances = new();
@@ -74,6 +75,7 @@ namespace ThreeLCS.ViewModels
             ILcsAuthService authService,
             ILcsSessionService sessionState,
             ILivenessService livenessService,
+            IBackgroundTaskService taskService,
             ILogger<MainViewModel> logger)
         {
             _envService = envService;
@@ -92,6 +94,8 @@ namespace ThreeLCS.ViewModels
             _authService = authService;
             _sessionState = sessionState;
             _livenessService = livenessService;
+            _taskService = taskService;
+            TaskService = taskService;
             _logger = logger;
             WeakReferenceMessenger.Default.Register<SessionStateChangedMessage>(this);
         }
@@ -325,13 +329,11 @@ namespace ThreeLCS.ViewModels
             var env = SelectedCheRow;
             _logger.LogDebug("OpenRdp clicked. SelectedCheInstance={Instance}", env?.Instance?.DisplayName ?? "<null>");
             if (env == null) return;
-
-            _rdpCts?.Cancel();
-            _rdpCts?.Dispose();
-            _rdpCts = new CancellationTokenSource();
-
             await _navigation.ShowRdpLaunchAsync(env);
         }
+
+        [RelayCommand]
+        private async Task ShowBackgroundTasks() => await _navigation.ShowBackgroundTasksAsync();
 
         [RelayCommand]
         private void LogonToApplication()
@@ -526,16 +528,13 @@ namespace ThreeLCS.ViewModels
         {
             StopAutoRefresh();
             if (!_settings.AutoRefresh) return;
-            _autoRefreshCts = new CancellationTokenSource();
-            var ct = _autoRefreshCts.Token;
-            _ = AutoRefreshLoopAsync(ct);
+            _autoRefreshTask = _taskService.Run("Auto Refresh", AutoRefreshLoopAsync);
         }
 
         private void StopAutoRefresh()
         {
-            _autoRefreshCts?.Cancel();
-            _autoRefreshCts?.Dispose();
-            _autoRefreshCts = null;
+            _autoRefreshTask?.Cancel();
+            _autoRefreshTask = null;
         }
 
         private async Task AutoRefreshLoopAsync(CancellationToken ct)
@@ -561,17 +560,15 @@ namespace ThreeLCS.ViewModels
 
         private void FireLivenessCheck(IEnumerable<EnvironmentViewModel> rows)
         {
-            CancelLiveness();
-            _livenessCts = new CancellationTokenSource();
-            var ct = _livenessCts.Token;
-            _ = Task.Run(() => _livenessService.CheckAllAsync(rows, ct), ct);
+            _livenessTask?.Cancel();
+            _livenessTask = _taskService.Run("Liveness Check",
+                ct => _livenessService.CheckAllAsync(rows, ct));
         }
 
         private void CancelLiveness()
         {
-            _livenessCts?.Cancel();
-            _livenessCts?.Dispose();
-            _livenessCts = null;
+            _livenessTask?.Cancel();
+            _livenessTask = null;
         }
 
         // ── Deployment state polling ───────────────────────────────────────────
@@ -588,9 +585,8 @@ namespace ThreeLCS.ViewModels
         {
             CancelPolling();
             if (!rows.Any(r => IsTransitionalState(r.Instance.DeploymentState))) return;
-
-            _pollingCts = new CancellationTokenSource();
-            _ = PollTransitionalStatesAsync(rows.ToList(), _pollingCts.Token);
+            _pollingTask = _taskService.Run("Deployment Polling",
+                ct => PollTransitionalStatesAsync(rows.ToList(), ct));
         }
 
         /// <summary>
@@ -605,9 +601,8 @@ namespace ThreeLCS.ViewModels
 
         private void CancelPolling()
         {
-            _pollingCts?.Cancel();
-            _pollingCts?.Dispose();
-            _pollingCts = null;
+            _pollingTask?.Cancel();
+            _pollingTask = null;
         }
 
         /// <summary>

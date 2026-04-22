@@ -26,6 +26,7 @@ namespace ThreeLCS.Services.Interfaces
         Task ShowAvailableKBsAsync(CloudHostedInstance instance);
         Task ShowChooseMachineAsync(CloudHostedInstance instance);
         Task ShowRdpLaunchAsync(EnvironmentViewModel env);
+        Task ShowBackgroundTasksAsync();
         Task ShowPowerShellAsync(CloudHostedInstance instance);
         Task ShowCookieEditAsync();
         void CloseAll();

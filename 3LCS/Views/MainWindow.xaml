@@ -339,6 +339,22 @@
                 <TextBlock Text="{Binding ApiMonitor.CurrentOperation}" Foreground="Gray" FontStyle="Italic"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
+                <Button Command="{Binding ShowBackgroundTasksCommand}"
+                        Padding="6,1" FontSize="11" Cursor="Hand"
+                        BorderThickness="0" Background="Transparent"
+                        ToolTip="Show background tasks">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE9F5;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="Tasks"/>
+                        <TextBlock Margin="4,0,0,0"
+                                   Text="{Binding TaskService.Tasks.Count}"
+                                   Foreground="SteelBlue" FontWeight="Bold"
+                                   Visibility="{Binding TaskService.Tasks.Count, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </Button>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem HorizontalAlignment="Right">
                 <ToggleButton IsChecked="{Binding IsMonitorOpen}"
                               Padding="6,1" FontSize="11" Cursor="Hand"
                               BorderThickness="0" Background="Transparent"

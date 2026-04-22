@@ -134,6 +134,14 @@ namespace ThreeLCS.Services.Implementations
                 w.ShowDialog();
             }));
 
+        public Task ShowBackgroundTasksAsync() => Task.Run(() =>
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var w = Resolve<BackgroundTasksWindow>();
+                w.Owner = Application.Current.MainWindow;
+                w.ShowDialog();
+            }));
+
         public Task ShowChooseMachineAsync(CloudHostedInstance instance) => Task.Run(() =>
             Application.Current.Dispatcher.Invoke(() => Resolve<ChooseMachineWindow>().ShowDialog()));
 
