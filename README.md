@@ -1,6 +1,6 @@
 # 3LCS
 
-A modern WPF rewrite of [2LCS](https://github.com/dawkacz/2LCS) — a client for Microsoft Dynamics 365 **Lifecycle Services (LCS)**.
+A modern WPF rewrite of [2LCS](https://github.com/microsoft/2LCS) — a client for Microsoft Dynamics 365 **Lifecycle Services (LCS)**.
 
 ## Features
 
