@@ -21,12 +21,12 @@ namespace ThreeLCS.Services.Implementations
             _dialog = dialog;
         }
 
-        public async Task ConnectAsync(CloudHostedInstance instance, List<RDPConnectionDetails> rdpList)
+        public Task ConnectAsync(CloudHostedInstance instance, List<RDPConnectionDetails> rdpList)
         {
             if (rdpList.Count == 0)
             {
                 _dialog.ShowError("No RDP connections available for this instance.");
-                return;
+                return Task.CompletedTask;
             }
 
             RDPConnectionDetails? selected;
@@ -35,22 +35,19 @@ namespace ThreeLCS.Services.Implementations
             else
                 selected = ChooseUser(rdpList);
 
-            if (selected == null) return;
+            if (selected == null) return Task.CompletedTask;
 
-            await Task.Run(() =>
+            using var creds = new RdpCredentials(selected.Address!, selected.Username!, selected.Password!);
+            var mstsc = new Process
             {
-                using var creds = new RdpCredentials(selected.Address!, selected.Username!, selected.Password!);
-                var mstsc = new Process
+                StartInfo = new ProcessStartInfo
                 {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = Environment.ExpandEnvironmentVariables(@"%SystemRoot%\system32\mstsc.exe"),
-                        Arguments = $"/v:{selected.Address}:{selected.Port}"
-                    }
-                };
-                mstsc.Start();
-                mstsc.WaitForExit();
-            });
+                    FileName = Environment.ExpandEnvironmentVariables(@"%SystemRoot%\system32\mstsc.exe"),
+                    Arguments = $"/v:{selected.Address}:{selected.Port}"
+                }
+            };
+            mstsc.Start();
+            return Task.CompletedTask;
         }
 
         public RDPConnectionDetails? ChooseUser(List<RDPConnectionDetails> rdpList)
