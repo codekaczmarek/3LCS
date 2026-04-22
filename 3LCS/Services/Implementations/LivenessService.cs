@@ -29,19 +29,14 @@ namespace ThreeLCS.Services.Implementations
                 return;
             }
 
-            row.Liveness = LivenessStatus.Checking;
             _logger.LogDebug("Liveness check started for {Host}", host);
 
-            if (await TryTcpAsync(host, 443, ct) || await TryTcpAsync(host, 80, ct))
-            {
-                row.Liveness = LivenessStatus.Alive;
-                _logger.LogDebug("Liveness check ALIVE for {Host}", host);
-            }
-            else
-            {
-                row.Liveness = LivenessStatus.Unreachable;
-                _logger.LogDebug("Liveness check UNREACHABLE for {Host}", host);
-            }
+            var result = (await TryTcpAsync(host, 443, ct) || await TryTcpAsync(host, 80, ct))
+                ? LivenessStatus.Alive
+                : LivenessStatus.Unreachable;
+
+            row.Liveness = result;
+            _logger.LogDebug("Liveness check {Result} for {Host}", result, host);
         }
 
         private static async Task<bool> TryTcpAsync(string host, int port, CancellationToken outerCt)

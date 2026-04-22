@@ -38,6 +38,7 @@ namespace ThreeLCS.ViewModels
         private CancellationTokenSource? _pollingCts;
         private CancellationTokenSource? _rdpCts;
         private CancellationTokenSource? _autoRefreshCts;
+        private readonly Dictionary<string, LivenessStatus> _livenessCache = new();
 
         public ILcsApiMonitorService ApiMonitor { get; }
 
@@ -246,8 +247,31 @@ namespace ThreeLCS.ViewModels
                 var che = await _envService.GetCheInstancesAsync();
                 var saas = await _envService.GetSaasInstancesAsync();
 
-                var cheRows = che.Select(i => new EnvironmentRow(i)).ToList();
-                var saasRows = saas.Select(i => new EnvironmentRow(i)).ToList();
+                // Snapshot current liveness before discarding old rows
+                foreach (var r in CheInstances.Concat(SaasInstances))
+                {
+                    var key = r.Instance.EnvironmentId ?? r.Instance.InstanceId;
+                    if (key != null) _livenessCache[key] = r.Liveness;
+                }
+
+                // Seed new rows from cache so liveness never flickers back to Unknown
+                var cheRows = che.Select(i =>
+                {
+                    var key = i.EnvironmentId ?? i.InstanceId;
+                    var row = new EnvironmentRow(i);
+                    if (key != null && _livenessCache.TryGetValue(key, out var cached))
+                        row.Liveness = cached;
+                    return row;
+                }).ToList();
+
+                var saasRows = saas.Select(i =>
+                {
+                    var key = i.EnvironmentId ?? i.InstanceId;
+                    var row = new EnvironmentRow(i);
+                    if (key != null && _livenessCache.TryGetValue(key, out var cached))
+                        row.Liveness = cached;
+                    return row;
+                }).ToList();
 
                 CheInstances = new ObservableCollection<EnvironmentRow>(cheRows);
                 SaasInstances = new ObservableCollection<EnvironmentRow>(saasRows);
