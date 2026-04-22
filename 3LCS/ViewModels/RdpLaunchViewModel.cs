@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -40,7 +41,9 @@ namespace ThreeLCS.ViewModels
         private Window? _window;
 
         private const int TimeoutMinutes = 12;
-        private const int StartGracePeriodSeconds = 65;
+        // Give LCS at least 3 poll cycles (3 × 30 s = 90 s) to reflect the
+        // Starting state before we consider aborting on a non-transitional reading.
+        private const int StartGracePeriodSeconds = 100;
 
         public RdpLaunchViewModel(
             ILcsEnvironmentService envService,
@@ -77,6 +80,8 @@ namespace ThreeLCS.ViewModels
 
                 if (isStopped || isUnreachable || isStarting)
                 {
+                    bool alreadyReady = false;
+
                     // Refresh LCS state first to confirm before acting
                     if (isStopped || isUnreachable)
                     {
@@ -88,63 +93,84 @@ namespace ThreeLCS.ViewModels
                             await Application.Current.Dispatcher.InvokeAsync(() => _env!.Instance = fresh);
                             instance = fresh;
                             isStopped = fresh.DeploymentState == DeploymentState.Stopped;
-                            isStarting = IsTransitional(fresh.DeploymentState);
-                            if (fresh.DeploymentState == DeploymentState.Active)
-                                goto connectDirectly;
+                            alreadyReady = IsReadyToConnect(fresh.DeploymentState);
                         }
                     }
 
-                    if (isStopped)
+                    if (!alreadyReady)
                     {
-                        // Register a named background task — identical to the MainWindow Start button
-                        StatusText = $"Requesting start of '{instance.DisplayName}'...";
-                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.StartCheEnv(_env!));
-                    }
-                    else
-                    {
-                        // Already in a transitional state — ensure deployment polling is active
-                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.ForceDeploymentPolling());
-                    }
-
-                    // Wait for EnvironmentViewModel.Instance.DeploymentState to reach a connectable state.
-                    // The state is updated every 30 s by MainViewModel's shared polling loop.
-                    var sw = Stopwatch.StartNew();
-                    var maxWait = TimeSpan.FromMinutes(TimeoutMinutes);
-
-                    while (sw.Elapsed < maxWait)
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        await Task.Delay(1000, ct);
-
-                        var state = _env!.Instance.DeploymentState;
-                        var elapsed = sw.Elapsed;
-                        StatusText = $"Waiting for '{instance.DisplayName}'... {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s  |  LCS: {state}";
-
-                        if (IsReadyToConnect(state))
+                        if (isStopped)
                         {
-                            instance = _env.Instance;
-                            break;
+                            // Register a named background task — identical to the MainWindow Start button
+                            StatusText = $"Requesting start of '{instance.DisplayName}'...";
+                            await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.StartCheEnv(_env!));
                         }
 
-                        // After the grace period, abort if the state has settled into something we can't connect to
-                        if (elapsed.TotalSeconds > StartGracePeriodSeconds && !IsTransitional(state))
+                        // Ensure deployment polling is running (reuse existing loop if active)
+                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.EnsureDeploymentPolling());
+
+                        // React to EnvironmentViewModel.Instance updates driven by the shared polling loop.
+                        // Rather than busy-polling every second, we wait for the PropertyChanged event and
+                        // only check state when the polling loop actually pushes a fresh value.
+                        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                        using var ctReg = ct.Register(() => tcs.TrySetCanceled(ct));
+                        var sw = Stopwatch.StartNew();
+
+                        void OnEnvChanged(object? sender, PropertyChangedEventArgs e)
                         {
-                            StatusText = $"Start failed — environment entered '{state}' state.";
-                            IsBusy = false;
-                            return;
+                            if (e.PropertyName != nameof(EnvironmentViewModel.Instance)) return;
+                            var state = _env!.Instance.DeploymentState;
+                            if (IsReadyToConnect(state))
+                                tcs.TrySetResult(true);
+                            else if (sw.Elapsed.TotalSeconds > StartGracePeriodSeconds && !IsTransitional(state))
+                                tcs.TrySetResult(false);
                         }
-                    }
 
-                    if (sw.Elapsed >= maxWait)
-                    {
-                        StatusText = $"Timed out after {TimeoutMinutes} minutes waiting for the environment to start.";
-                        IsBusy = false;
-                        return;
+                        _env!.PropertyChanged += OnEnvChanged;
+                        // Check current state immediately — polling may have already updated Instance
+                        // before we subscribed, so PropertyChanged won't fire for the existing value.
+                        OnEnvChanged(null, new PropertyChangedEventArgs(nameof(EnvironmentViewModel.Instance)));
+                        try
+                        {
+                            // 1-second tick loop — only for updating the elapsed timer in the status text.
+                            // State evaluation is driven exclusively by OnEnvChanged above.
+                            while (!tcs.Task.IsCompleted)
+                            {
+                                if (sw.Elapsed >= TimeSpan.FromMinutes(TimeoutMinutes))
+                                {
+                                    tcs.TrySetResult(false);
+                                    break;
+                                }
+                                try { await Task.Delay(1000, ct); }
+                                catch (OperationCanceledException) { break; }
+
+                                var state = _env!.Instance.DeploymentState;
+                                StatusText = $"Waiting for '{instance.DisplayName}'... {(int)sw.Elapsed.TotalMinutes}m {sw.Elapsed.Seconds}s  |  LCS: {state}";
+                            }
+
+                            ct.ThrowIfCancellationRequested();
+
+                            bool ready = await tcs.Task;
+                            if (!ready)
+                            {
+                                var state = _env!.Instance.DeploymentState;
+                                StatusText = sw.Elapsed >= TimeSpan.FromMinutes(TimeoutMinutes)
+                                    ? $"Timed out after {TimeoutMinutes} minutes."
+                                    : $"Start failed — environment entered '{state}' state.";
+                                IsBusy = false;
+                                return;
+                            }
+
+                            instance = _env!.Instance;
+                        }
+                        finally
+                        {
+                            _env!.PropertyChanged -= OnEnvChanged;
+                        }
                     }
                 }
 
                 // Step 2: Fetch credentials
-                connectDirectly:
                 StatusText = "Fetching credentials...";
                 var rdpList = await Task.Run(() => _credentialsService.GetRdpConnectionDetails(instance), ct);
 

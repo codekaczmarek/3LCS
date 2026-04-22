@@ -605,6 +605,17 @@ namespace ThreeLCS.ViewModels
         }
 
         /// <summary>
+        /// Starts deployment polling only if not already running. Safe to call even if polling
+        /// is active — in that case it does nothing. Use from external callers (e.g. RdpLaunchViewModel)
+        /// when the machine may already be in a transitional state and polling may be running.
+        /// </summary>
+        public void EnsureDeploymentPolling()
+        {
+            if (_pollingTask?.Status == ManagedTaskStatus.Running) return;
+            ForceDeploymentPolling();
+        }
+
+        /// <summary>
         /// Called externally (e.g. from RdpLaunchViewModel) after a start/stop request is
         /// sent so that MainWindow reflects state changes via the same 30-second poll loop.
         /// </summary>
@@ -617,7 +628,8 @@ namespace ThreeLCS.ViewModels
         /// <summary>
         /// Unconditionally starts the deployment poll loop regardless of current states.
         /// Use this immediately after sending a start/stop request, before LCS has had
-        /// time to reflect the new transitional state.
+        /// time to reflect the new transitional state. Polls for at least minIterations
+        /// cycles so the loop doesn't exit on the first Stopped reading before LCS updates.
         /// </summary>
         public void ForceDeploymentPolling()
         {
@@ -625,7 +637,7 @@ namespace ThreeLCS.ViewModels
             var all = CheInstances.Concat(SaasInstances).ToList();
             if (all.Count == 0) return;
             _pollingTask = _taskService.Run("Deployment Polling",
-                ct => PollTransitionalStatesAsync(all, ct));
+                ct => PollTransitionalStatesAsync(all, ct, minIterations: 5));
         }
 
         private void CancelPolling()
@@ -638,11 +650,12 @@ namespace ThreeLCS.ViewModels
         /// Silently polls LCS every 30 seconds while any environment is in a
         /// transitional state (Starting/Stopping). Updates instance data in-place
         /// without showing a loading indicator. Stops automatically once all
-        /// environments have left the transitional state.
+        /// environments have left the transitional state (and minIterations has been reached).
         /// </summary>
-        private async Task PollTransitionalStatesAsync(List<EnvironmentViewModel> rows, CancellationToken ct)
+        private async Task PollTransitionalStatesAsync(List<EnvironmentViewModel> rows, CancellationToken ct, int minIterations = 0)
         {
-            _logger.LogInformation("Deployment state polling started for {Count} transitional environment(s)", rows.Count);
+            _logger.LogInformation("Deployment state polling started for {Count} environment(s) (minIterations={Min})", rows.Count, minIterations);
+            int iterations = 0;
             try
             {
                 while (!ct.IsCancellationRequested)
@@ -666,8 +679,9 @@ namespace ThreeLCS.ViewModels
                         }
                     });
 
-                    _logger.LogInformation("Deployment state poll complete. AnyStillTransitional={AnyStillTransitional}", anyStillTransitional);
-                    if (!anyStillTransitional) break;
+                    iterations++;
+                    _logger.LogInformation("Deployment state poll #{Iter} complete. AnyStillTransitional={AnyStillTransitional}", iterations, anyStillTransitional);
+                    if (!anyStillTransitional && iterations >= minIterations) break;
                 }
             }
             catch (OperationCanceledException) { }
