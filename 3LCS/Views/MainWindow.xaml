@@ -200,7 +200,7 @@
                               FontSize="11">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-                                <Setter Property="MinHeight" Value="24"/>
+                                <Setter Property="MinHeight" Value="20"/>
                                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
                             </Style>
                         </DataGrid.RowStyle>
@@ -260,7 +260,7 @@
                           FontSize="11">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-                            <Setter Property="MinHeight" Value="24"/>
+                            <Setter Property="MinHeight" Value="20"/>
                             <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
                         </Style>
                     </DataGrid.RowStyle>
