@@ -56,7 +56,7 @@ namespace ThreeLCS
                     services.AddSingleton<INavigationService>(sp => new NavigationService(sp, sp.GetRequiredService<ILogger<NavigationService>>()));
 
                     // ViewModels
-                    services.AddTransient<MainViewModel>();
+                    services.AddSingleton<MainViewModel>();
                     services.AddTransient<LoginViewModel>();
                     services.AddTransient<ChooseProjectViewModel>();
                     services.AddTransient<AddNsgViewModel>();
