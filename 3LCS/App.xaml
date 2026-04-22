@@ -4,7 +4,17 @@
              ThemeMode="System">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Converters -->
+            <!-- ── Global DataGrid compactness ───────────────────────────────── -->
+            <Style TargetType="DataGrid">
+                <Setter Property="FontSize"       Value="11"/>
+                <Setter Property="RowHeaderWidth"  Value="0"/>
+                <Setter Property="CanUserAddRows"  Value="False"/>
+                <Setter Property="SelectionUnit"   Value="FullRow"/>
+            </Style>
+
+            <Style TargetType="DataGridRow">
+                <Setter Property="MinHeight" Value="20"/>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

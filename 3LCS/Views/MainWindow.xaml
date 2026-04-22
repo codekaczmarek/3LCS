@@ -19,7 +19,7 @@
         <!-- ── Liveness icon cell template (shared by both grids) ─────────── -->
         <DataTemplate x:Key="LivenessCellTemplate">
             <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                       FontSize="14"
+                       FontSize="11"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
                        SnapsToDevicePixels="True">
@@ -193,14 +193,9 @@
                               SelectedItem="{Binding SelectedCheRow}"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
-                              SelectionMode="Single"
-                              RowHeaderWidth="0"
-                              SelectionUnit="FullRow"
-                              CanUserAddRows="False"
-                              FontSize="11">
+                              SelectionMode="Single">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-                                <Setter Property="MinHeight" Value="20"/>
                                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
                             </Style>
                         </DataGrid.RowStyle>
@@ -253,14 +248,9 @@
                 <DataGrid ItemsSource="{Binding SaasInstances}"
                           SelectedItem="{Binding SelectedSaasRow}"
                           AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          RowHeaderWidth="0"
-                          SelectionUnit="FullRow"
-                          CanUserAddRows="False"
-                          FontSize="11">
+                          IsReadOnly="True">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-                            <Setter Property="MinHeight" Value="20"/>
                             <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
                         </Style>
                     </DataGrid.RowStyle>
