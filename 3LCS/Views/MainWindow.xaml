@@ -25,7 +25,7 @@
                        SnapsToDevicePixels="True">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
-                        <Setter Property="Text"       Value="&#xEB50;"/><!-- CircleRing = unknown -->
+                        <Setter Property="Text"       Value="&#xE9CE;"/><!-- StatusCircleQuestionMark = unknown -->
                         <Setter Property="Foreground"  Value="#AAAAAA"/>
                         <Setter Property="ToolTip"     Value="Not yet checked"/>
                         <Style.Triggers>
@@ -35,12 +35,12 @@
                                 <Setter Property="ToolTip"   Value="Checking…"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding Liveness}" Value="Alive">
-                                <Setter Property="Text"      Value="&#xF167;"/><!-- CheckmarkCircle -->
+                                <Setter Property="Text"      Value="&#xE73E;"/><!-- Accept / checkmark -->
                                 <Setter Property="Foreground" Value="#107C10"/>
                                 <Setter Property="ToolTip"   Value="Responding on port 443/80"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding Liveness}" Value="Unreachable">
-                                <Setter Property="Text"      Value="&#xF196;"/><!-- DismissCircle -->
+                                <Setter Property="Text"      Value="&#xE783;"/><!-- Error (circle with X) -->
                                 <Setter Property="Foreground" Value="#C42B1C"/>
                                 <Setter Property="ToolTip"   Value="Not responding on port 443 or 80"/>
                             </DataTrigger>
