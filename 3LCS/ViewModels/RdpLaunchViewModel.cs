@@ -117,10 +117,11 @@ namespace ThreeLCS.ViewModels
                             IsBusy = false;
                             return;
                         }
-
-                        // Kick off MainViewModel's polling loop so MainWindow reflects state changes
-                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.ForceDeploymentPolling());
                     }
+
+                    // Always kick off deployment polling so MainWindow and the status text
+                    // below both reflect state changes — even if the machine was already starting.
+                    await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.ForceDeploymentPolling());
 
                     // ── Wait loop: 1 s text refresh, 3 s TCP probe ─────────────────
                     // DeploymentState updates flow via MainViewModel.PollTransitionalStatesAsync
@@ -137,13 +138,13 @@ namespace ThreeLCS.ViewModels
                         secondsSinceLiveness++;
 
                         var elapsed = sw.Elapsed;
-                        StatusText = $"Waiting for '{instance.DisplayName}' to start… {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s";
+                        var currentState = _env!.Instance.DeploymentState;
+                        StatusText = $"Waiting for '{instance.DisplayName}' to start… {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s  |  LCS: {currentState}";
 
                         // Abort if MainViewModel's poller reports the environment went back to Stopped.
                         // Only check after the grace period so LCS has time to reflect the new state.
                         if (sw.Elapsed.TotalSeconds > StartGracePeriodSeconds)
                         {
-                            var currentState = _env!.Instance.DeploymentState;
                             if (currentState == DeploymentState.Stopped || currentState == DeploymentState.Undefined)
                             {
                                 StatusText = $"Start failed — machine returned to '{currentState}' state.";
