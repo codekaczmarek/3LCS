@@ -245,7 +245,8 @@ namespace ThreeLCS.ViewModels
             }
             IsBusy = true;
             StatusText = "Loading environments...";
-            CancelPolling();
+            // Do NOT cancel polling here — a force-polling loop started by a recent Start/Stop
+            // request must survive the refresh so RDP windows keep receiving state updates.
             try
             {
                 var che = await _envService.GetCheInstancesAsync();
@@ -587,7 +588,9 @@ namespace ThreeLCS.ViewModels
 
         private void StartOrStopPolling(IReadOnlyList<EnvironmentViewModel> rows)
         {
-            CancelPolling();
+            // Preserve an already-running polling loop (e.g. force-polling started after a
+            // Start/Stop request). Only create a new loop when none is active.
+            if (_pollingTask?.Status == ManagedTaskStatus.Running) return;
             if (!rows.Any(r => IsTransitionalState(r.Instance.DeploymentState))) return;
             _pollingTask = _taskService.Run("Deployment Polling",
                 ct => PollTransitionalStatesAsync(rows.ToList(), ct));
