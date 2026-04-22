@@ -67,7 +67,18 @@ namespace ThreeLCS.Services.Implementations
         }
 
         public async Task<ActionDetails?> GetOngoingActionDetailsAsync(CloudHostedInstance instance)
-            => await GetAsync<ActionDetails>($"{Http.LcsUrl}/Environment/GetOngoingActionDetails/{Http.LcsProjectId}?environmentId={instance.EnvironmentId}");
+        {
+            try
+            {
+                return await GetAsync<ActionDetails>($"{Http.LcsUrl}/Environment/GetOngoingActionDetails/{Http.LcsProjectId}?environmentId={instance.EnvironmentId}");
+            }
+            catch (System.Net.Http.HttpRequestException ex)
+                when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // 404 = no ongoing action for this environment
+                return null;
+            }
+        }
 
         public async Task<List<ActionDetails>> GetEnvironmentHistoryDetailsAsync(CloudHostedInstance instance)
         {
