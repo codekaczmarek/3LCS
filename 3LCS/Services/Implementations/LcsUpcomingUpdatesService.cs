@@ -11,8 +11,8 @@ namespace ThreeLCS.Services.Implementations
 {
     public class LcsUpcomingUpdatesService : LcsServiceBase, ILcsUpcomingUpdatesService
     {
-        public LcsUpcomingUpdatesService(ILcsHttpClientService http, ILcsSessionService sessionState, ILogger<LcsUpcomingUpdatesService> logger)
-            : base(http, sessionState, logger) { }
+        public LcsUpcomingUpdatesService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ILogger<LcsUpcomingUpdatesService> logger)
+            : base(http, sessionState, auth, logger) { }
 
         public async Task<List<UpcomingCalendarViewModels>?> GetUpcomingCalendarsAsync()
         {

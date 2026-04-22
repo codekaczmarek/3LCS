@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Net;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using ThreeLCS.Infrastructure;
 using ThreeLCS.Services.Interfaces;
 
@@ -13,6 +15,7 @@ namespace ThreeLCS.Services.Implementations
         private readonly ILcsSessionService _sessionState;
         private readonly ISettingsService _settings;
         private readonly ILogger<LcsAuthService> _logger;
+        private readonly SemaphoreSlim _reAuthLock = new(1, 1);
 
         public LcsAuthService(ILcsHttpClientService http, ILcsSessionService sessionState, ISettingsService settings, ILogger<LcsAuthService> logger)
         {
@@ -52,6 +55,38 @@ namespace ThreeLCS.Services.Implementations
             _settings.Save();
             _logger.LogInformation("Cookies applied and settings saved. IsLoggedIn={IsLoggedIn}", IsLoggedIn);
             _sessionState.NotifyLoggedIn();
+        }
+
+        public async Task<bool> SilentReAuthAsync()
+        {
+            await _reAuthLock.WaitAsync();
+            try
+            {
+                _logger.LogInformation("Silent re-authentication started");
+                var cookies = ExtractCookiesFromBrowser();
+                if (cookies == null)
+                {
+                    _logger.LogWarning("Silent re-authentication failed — could not extract cookies from browser");
+                    return false;
+                }
+
+                SetCookies(cookies);
+                _sessionState.InvalidateToken();
+                var token = await _sessionState.ForceRefreshTokenAsync();
+
+                if (token == null)
+                {
+                    _logger.LogWarning("Silent re-authentication failed — token refresh returned null");
+                    return false;
+                }
+
+                _logger.LogInformation("Silent re-authentication succeeded");
+                return true;
+            }
+            finally
+            {
+                _reAuthLock.Release();
+            }
         }
 
         public bool RestoreSavedCookies()

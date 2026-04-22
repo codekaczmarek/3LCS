@@ -8,8 +8,8 @@ namespace ThreeLCS.Services.Implementations
 {
     public class LcsAssetLibraryService : LcsServiceBase, ILcsAssetLibraryService
     {
-        public LcsAssetLibraryService(ILcsHttpClientService http, ILcsSessionService sessionState, ILogger<LcsAssetLibraryService> logger)
-            : base(http, sessionState, logger) { }
+        public LcsAssetLibraryService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ILogger<LcsAssetLibraryService> logger)
+            : base(http, sessionState, auth, logger) { }
 
         public List<Asset> GetSharedAssetList(AssetFileType assetFileType)
         {

@@ -13,8 +13,8 @@ namespace ThreeLCS.Services.Implementations
         private readonly CredentialsCacheHelper _cache;
         private readonly ISettingsService _settings;
 
-        public LcsCredentialsService(ILcsHttpClientService http, ILcsSessionService sessionState, CredentialsCacheHelper cache, ISettingsService settings, ILogger<LcsCredentialsService> logger)
-            : base(http, sessionState, logger)
+        public LcsCredentialsService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, CredentialsCacheHelper cache, ISettingsService settings, ILogger<LcsCredentialsService> logger)
+            : base(http, sessionState, auth, logger)
         {
             _cache = cache;
             _settings = settings;

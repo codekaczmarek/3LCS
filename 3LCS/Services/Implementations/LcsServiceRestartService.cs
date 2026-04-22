@@ -8,8 +8,8 @@ namespace ThreeLCS.Services.Implementations
 {
     public class LcsServiceRestartService : LcsServiceBase, ILcsServiceRestartService
     {
-        public LcsServiceRestartService(ILcsHttpClientService http, ILcsSessionService sessionState, ILogger<LcsServiceRestartService> logger)
-            : base(http, sessionState, logger) { }
+        public LcsServiceRestartService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ILogger<LcsServiceRestartService> logger)
+            : base(http, sessionState, auth, logger) { }
 
         public System.Collections.Generic.List<ServiceToRestart>? GetServicesToRestart()
             => GetSync<System.Collections.Generic.List<ServiceToRestart>>($"{Http.LcsUrl}/EnvironmentServicingV2/GetServicesToRestart/{Http.LcsProjectId}?_={Ts()}");

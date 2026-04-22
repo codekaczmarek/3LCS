@@ -18,11 +18,14 @@ namespace ThreeLCS.Services.Implementations
     /// Standardises HTTP execution, response unwrapping, JSON deserialisation, logging,
     /// and API call monitoring via the WeakReferenceMessenger.
     /// Token injection is handled per-request via ILcsSessionService.
+    /// HTTP 498 (session expired) triggers a transparent single retry after silent re-authentication;
+    /// only a second consecutive 498 propagates to the caller.
     /// </summary>
     public abstract class LcsServiceBase
     {
         protected readonly ILcsHttpClientService Http;
         private readonly ILcsSessionService _sessionState;
+        private readonly ILcsAuthService _auth;
         private readonly ILogger _logger;
 
         private static readonly JsonSerializerSettings LenientSettings = new()
@@ -36,10 +39,11 @@ namespace ThreeLCS.Services.Implementations
             TypeNameHandling = TypeNameHandling.Auto
         };
 
-        protected LcsServiceBase(ILcsHttpClientService http, ILcsSessionService sessionState, ILogger logger)
+        protected LcsServiceBase(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ILogger logger)
         {
             Http = http;
             _sessionState = sessionState;
+            _auth = auth;
             _logger = logger;
         }
 
@@ -58,6 +62,27 @@ namespace ThreeLCS.Services.Implementations
             try
             {
                 var response = await Http.HttpClient.GetAsync(url);
+
+                if ((int)response.StatusCode == 498)
+                {
+                    response.Dispose();
+                    _logger.LogWarning("GET {Url}: HTTP 498 — attempting silent re-authentication", url);
+
+                    if (await _auth.SilentReAuthAsync())
+                    {
+                        response = await Http.HttpClient.GetAsync(url);
+                        _logger.LogInformation("GET {Url} retry after re-auth → HTTP {StatusCode}", url, (int)response.StatusCode);
+                    }
+                    else
+                    {
+                        sw.Stop();
+                        sent = true;
+                        WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, 498, sw.ElapsedMilliseconds, "Session expired — re-auth failed"));
+                        _sessionState.NotifySessionExpired();
+                        throw new HttpRequestException($"GET {url} failed: HTTP 498 and silent re-authentication was unsuccessful.");
+                    }
+                }
+
                 sw.Stop();
                 sent = true;
                 _logger.LogDebug("GET {Url} → HTTP {StatusCode}", url, (int)response.StatusCode);
@@ -87,6 +112,27 @@ namespace ThreeLCS.Services.Implementations
             try
             {
                 var response = Http.HttpClient.GetAsync(url).GetAwaiter().GetResult();
+
+                if ((int)response.StatusCode == 498)
+                {
+                    response.Dispose();
+                    _logger.LogWarning("GET {Url}: HTTP 498 — attempting silent re-authentication", url);
+
+                    if (_auth.SilentReAuthAsync().GetAwaiter().GetResult())
+                    {
+                        response = Http.HttpClient.GetAsync(url).GetAwaiter().GetResult();
+                        _logger.LogInformation("GET {Url} retry after re-auth → HTTP {StatusCode}", url, (int)response.StatusCode);
+                    }
+                    else
+                    {
+                        sw.Stop();
+                        sent = true;
+                        WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, 498, sw.ElapsedMilliseconds, "Session expired — re-auth failed"));
+                        _sessionState.NotifySessionExpired();
+                        throw new HttpRequestException($"GET {url} failed: HTTP 498 and silent re-authentication was unsuccessful.");
+                    }
+                }
+
                 sw.Stop();
                 sent = true;
                 _logger.LogDebug("GET {Url} → HTTP {StatusCode}", url, (int)response.StatusCode);
@@ -108,6 +154,7 @@ namespace ThreeLCS.Services.Implementations
         /// <summary>
         /// Executes a POST with per-request token injection and content factory for retry.
         /// Retries once on HTTP 403 after invalidating and force-refreshing the anti-forgery token.
+        /// Retries once on HTTP 498 after silent re-authentication (cookie refresh + token refresh).
         /// </summary>
         private async Task<string> ExecutePostAsync(string url, Func<HttpContent> contentFactory)
         {
@@ -136,6 +183,30 @@ namespace ThreeLCS.Services.Implementations
                     if (newToken != null)
                         retryRequest.Headers.TryAddWithoutValidation("__RequestVerificationToken", newToken);
                     response = await Http.HttpClient.SendAsync(retryRequest);
+                }
+
+                if ((int)response.StatusCode == 498)
+                {
+                    response.Dispose();
+                    _logger.LogWarning("POST {Url}: HTTP 498 — attempting silent re-authentication", url);
+
+                    if (await _auth.SilentReAuthAsync())
+                    {
+                        var freshToken = await _sessionState.GetValidTokenAsync();
+                        using var reAuthRequest = new HttpRequestMessage(HttpMethod.Post, url) { Content = contentFactory() };
+                        if (freshToken != null)
+                            reAuthRequest.Headers.TryAddWithoutValidation("__RequestVerificationToken", freshToken);
+                        response = await Http.HttpClient.SendAsync(reAuthRequest);
+                        _logger.LogInformation("POST {Url} retry after re-auth → HTTP {StatusCode}", url, (int)response.StatusCode);
+                    }
+                    else
+                    {
+                        sw.Stop();
+                        sent = true;
+                        WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, 498, sw.ElapsedMilliseconds, "Session expired — re-auth failed"));
+                        _sessionState.NotifySessionExpired();
+                        throw new HttpRequestException($"POST {url} failed: HTTP 498 and silent re-authentication was unsuccessful.");
+                    }
                 }
 
                 sw.Stop();
@@ -183,6 +254,30 @@ namespace ThreeLCS.Services.Implementations
                     if (newToken != null)
                         retryRequest.Headers.TryAddWithoutValidation("__RequestVerificationToken", newToken);
                     response = Http.HttpClient.SendAsync(retryRequest).GetAwaiter().GetResult();
+                }
+
+                if ((int)response.StatusCode == 498)
+                {
+                    response.Dispose();
+                    _logger.LogWarning("POST {Url}: HTTP 498 — attempting silent re-authentication", url);
+
+                    if (_auth.SilentReAuthAsync().GetAwaiter().GetResult())
+                    {
+                        var freshToken = _sessionState.GetValidTokenAsync().GetAwaiter().GetResult();
+                        using var reAuthRequest = new HttpRequestMessage(HttpMethod.Post, url) { Content = contentFactory() };
+                        if (freshToken != null)
+                            reAuthRequest.Headers.TryAddWithoutValidation("__RequestVerificationToken", freshToken);
+                        response = Http.HttpClient.SendAsync(reAuthRequest).GetAwaiter().GetResult();
+                        _logger.LogInformation("POST {Url} retry after re-auth → HTTP {StatusCode}", url, (int)response.StatusCode);
+                    }
+                    else
+                    {
+                        sw.Stop();
+                        sent = true;
+                        WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, 498, sw.ElapsedMilliseconds, "Session expired — re-auth failed"));
+                        _sessionState.NotifySessionExpired();
+                        throw new HttpRequestException($"POST {url} failed: HTTP 498 and silent re-authentication was unsuccessful.");
+                    }
                 }
 
                 sw.Stop();

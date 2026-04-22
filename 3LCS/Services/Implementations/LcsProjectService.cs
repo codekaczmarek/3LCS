@@ -9,8 +9,8 @@ namespace ThreeLCS.Services.Implementations
 {
     public class LcsProjectService : LcsServiceBase, ILcsProjectService
     {
-        public LcsProjectService(ILcsHttpClientService http, ILcsSessionService sessionState, ILogger<LcsProjectService> logger)
-            : base(http, sessionState, logger) { }
+        public LcsProjectService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ILogger<LcsProjectService> logger)
+            : base(http, sessionState, auth, logger) { }
 
         public async Task<List<LcsProject>> GetAllProjectsAsync()
         {

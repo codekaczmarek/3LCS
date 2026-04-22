@@ -8,8 +8,8 @@ namespace ThreeLCS.Services.Implementations
 {
     public class LcsEnvironmentService : LcsServiceBase, ILcsEnvironmentService
     {
-        public LcsEnvironmentService(ILcsHttpClientService http, ILcsSessionService sessionState, ILogger<LcsEnvironmentService> logger)
-            : base(http, sessionState, logger) { }
+        public LcsEnvironmentService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ILogger<LcsEnvironmentService> logger)
+            : base(http, sessionState, auth, logger) { }
 
         public async Task<List<CloudHostedInstance>> GetCheInstancesAsync()
         {

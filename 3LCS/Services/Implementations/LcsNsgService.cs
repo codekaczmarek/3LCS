@@ -10,8 +10,8 @@ namespace ThreeLCS.Services.Implementations
     {
         private readonly ILcsEnvironmentService _envService;
 
-        public LcsNsgService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsEnvironmentService envService, ILogger<LcsNsgService> logger)
-            : base(http, sessionState, logger)
+        public LcsNsgService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ILcsEnvironmentService envService, ILogger<LcsNsgService> logger)
+            : base(http, sessionState, auth, logger)
         {
             _envService = envService;
         }

@@ -15,8 +15,8 @@ namespace ThreeLCS.Services.Implementations
     {
         private readonly ISettingsService _settings;
 
-        public LcsDiagnosticsService(ILcsHttpClientService http, ILcsSessionService sessionState, ISettingsService settings, ILogger<LcsDiagnosticsService> logger)
-            : base(http, sessionState, logger)
+        public LcsDiagnosticsService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ISettingsService settings, ILogger<LcsDiagnosticsService> logger)
+            : base(http, sessionState, auth, logger)
         {
             _settings = settings;
         }

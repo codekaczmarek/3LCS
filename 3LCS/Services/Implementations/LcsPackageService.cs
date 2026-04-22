@@ -9,8 +9,8 @@ namespace ThreeLCS.Services.Implementations
 {
     public class LcsPackageService : LcsServiceBase, ILcsPackageService
     {
-        public LcsPackageService(ILcsHttpClientService http, ILcsSessionService sessionState, ILogger<LcsPackageService> logger)
-            : base(http, sessionState, logger) { }
+        public LcsPackageService(ILcsHttpClientService http, ILcsSessionService sessionState, ILcsAuthService auth, ILogger<LcsPackageService> logger)
+            : base(http, sessionState, auth, logger) { }
 
         public List<DeployablePackage> GetPagedDeployablePackageList(CloudHostedInstance instance)
         {
