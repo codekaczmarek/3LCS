@@ -167,18 +167,12 @@
                     </Button>
                 </StackPanel>
 
-                <!-- Right: About + Exit -->
+                <!-- Right: About -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Style="{StaticResource CmdBtn}" Command="{Binding AboutCommand}" ToolTip="About 3LCS">
                         <StackPanel>
                             <TextBlock Text="&#xE946;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center"/>
                             <TextBlock Text="About" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource CmdBtn}" Click="ExitMenuItem_Click" ToolTip="Exit 3LCS">
-                        <StackPanel>
-                            <TextBlock Text="&#xE8BB;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Exit" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
