@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ThreeLCS.Models;
 using ThreeLCS.Services.Interfaces;
+using ThreeLCS.ViewModels;
 
 namespace ThreeLCS.Services.Implementations
 {
@@ -17,10 +18,10 @@ namespace ThreeLCS.Services.Implementations
 
         public LivenessService(ILogger<LivenessService> logger) => _logger = logger;
 
-        public Task CheckAllAsync(IEnumerable<EnvironmentRow> rows, CancellationToken ct = default)
+        public Task CheckAllAsync(IEnumerable<EnvironmentViewModel> rows, CancellationToken ct = default)
             => Task.WhenAll(rows.Select(row => CheckOneAsync(row, ct)));
 
-        private async Task CheckOneAsync(EnvironmentRow row, CancellationToken ct)
+        private async Task CheckOneAsync(EnvironmentViewModel row, CancellationToken ct)
         {
             var host = GetHost(row.Instance);
             if (host == null)

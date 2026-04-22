@@ -38,7 +38,7 @@ namespace ThreeLCS.ViewModels
         private RDPConnectionDetails? _selectedConnection;
 
         private CloudHostedInstance? _instance;
-        private EnvironmentRow? _row;
+        private EnvironmentViewModel? _env;
         private Window? _window;
 
         // Polling intervals
@@ -60,10 +60,10 @@ namespace ThreeLCS.ViewModels
             _logger = logger;
         }
 
-        public void Initialise(EnvironmentRow row, Window window)
+        public void Initialise(EnvironmentViewModel env, Window window)
         {
-            _row = row;
-            _instance = row.Instance;
+            _env = env;
+            _instance = env.Instance;
             _window = window;
             _cts = new CancellationTokenSource();
             _ = RunAsync(_cts.Token);
@@ -77,7 +77,7 @@ namespace ThreeLCS.ViewModels
 
                 // ── Step 1: Start if stopped / unreachable ─────────────────────────
                 bool isStopped = instance.DeploymentState == DeploymentState.Stopped;
-                bool isUnreachable = _row!.Liveness == LivenessStatus.Unreachable;
+                bool isUnreachable = _env!.Liveness == LivenessStatus.Unreachable;
                 bool isAlreadyStarting = instance.DeploymentState == DeploymentState.Starting;
 
                 if (isStopped || isUnreachable || isAlreadyStarting)
@@ -91,7 +91,7 @@ namespace ThreeLCS.ViewModels
                         if (fresh != null)
                         {
                             instance = fresh;
-                            await Application.Current.Dispatcher.InvokeAsync(() => _row.Instance = fresh);
+                            await Application.Current.Dispatcher.InvokeAsync(() => _env!.Instance = fresh);
                             isStopped = fresh.DeploymentState == DeploymentState.Stopped;
                             isAlreadyStarting = fresh.DeploymentState == DeploymentState.Starting;
                             // If refresh shows it's active, skip the start-and-wait flow entirely
@@ -117,7 +117,7 @@ namespace ThreeLCS.ViewModels
 
                     // ── Wait loop: 1 s text refresh, 3 s TCP probe ─────────────────
                     // DeploymentState updates flow via MainViewModel.PollTransitionalStatesAsync
-                    // (every 30 s) which writes to the same _row.Instance object.
+                    // (every 30 s) which writes to the same _env.Instance object.
                     var host = GetHost(instance);
                     bool becameReachable = false;
                     var sw = Stopwatch.StartNew();
@@ -133,7 +133,7 @@ namespace ThreeLCS.ViewModels
                         StatusText = $"Waiting for '{instance.DisplayName}' to start… {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s";
 
                         // Abort if MainViewModel's poller reports the environment went back to Stopped
-                        var currentState = _row!.Instance.DeploymentState;
+                        var currentState = _env!.Instance.DeploymentState;
                         if (currentState == DeploymentState.Stopped || currentState == DeploymentState.Undefined)
                         {
                             StatusText = $"Start failed — machine returned to '{currentState}' state.";
@@ -149,7 +149,7 @@ namespace ThreeLCS.ViewModels
                             {
                                 becameReachable = true;
                                 // Pick up the latest instance data written by MainViewModel's poller
-                                instance = _row!.Instance;
+                                instance = _env!.Instance;
                                 break;
                             }
                         }

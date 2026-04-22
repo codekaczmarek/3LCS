@@ -1,5 +1,4 @@
 using System.Windows;
-using ThreeLCS.Models;
 using ThreeLCS.ViewModels;
 
 namespace ThreeLCS.Views
@@ -15,9 +14,9 @@ namespace ThreeLCS.Views
             DataContext = viewModel;
         }
 
-        public void Launch(EnvironmentRow row)
+        public void Launch(EnvironmentViewModel env)
         {
-            _viewModel.Initialise(row, this);
+            _viewModel.Initialise(env, this);
         }
     }
 }

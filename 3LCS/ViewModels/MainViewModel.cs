@@ -42,10 +42,10 @@ namespace ThreeLCS.ViewModels
 
         public ILcsApiMonitorService ApiMonitor { get; }
 
-        [ObservableProperty] private ObservableCollection<EnvironmentRow> _cheInstances = new();
-        [ObservableProperty] private ObservableCollection<EnvironmentRow> _saasInstances = new();
-        [ObservableProperty] private EnvironmentRow? _selectedCheRow;
-        [ObservableProperty] private EnvironmentRow? _selectedSaasRow;
+        [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _cheInstances = new();
+        [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _saasInstances = new();
+        [ObservableProperty] private EnvironmentViewModel? _selectedCheRow;
+        [ObservableProperty] private EnvironmentViewModel? _selectedSaasRow;
         [ObservableProperty] private bool _isBusy;
         [ObservableProperty] private string _statusText = "Not logged in. Use File → Login to LCS.";
         [ObservableProperty] private LcsProject? _selectedProject;
@@ -258,23 +258,23 @@ namespace ThreeLCS.ViewModels
                 var cheRows = che.Select(i =>
                 {
                     var key = i.EnvironmentId ?? i.InstanceId;
-                    var row = new EnvironmentRow(i);
+                    var env = new EnvironmentViewModel(i);
                     if (key != null && _livenessCache.TryGetValue(key, out var cached))
-                        row.Liveness = cached;
-                    return row;
+                        env.Liveness = cached;
+                    return env;
                 }).ToList();
 
                 var saasRows = saas.Select(i =>
                 {
                     var key = i.EnvironmentId ?? i.InstanceId;
-                    var row = new EnvironmentRow(i);
+                    var env = new EnvironmentViewModel(i);
                     if (key != null && _livenessCache.TryGetValue(key, out var cached))
-                        row.Liveness = cached;
-                    return row;
+                        env.Liveness = cached;
+                    return env;
                 }).ToList();
 
-                CheInstances = new ObservableCollection<EnvironmentRow>(cheRows);
-                SaasInstances = new ObservableCollection<EnvironmentRow>(saasRows);
+                CheInstances = new ObservableCollection<EnvironmentViewModel>(cheRows);
+                SaasInstances = new ObservableCollection<EnvironmentViewModel>(saasRows);
                 StatusText = $"Loaded {CheInstances.Count} CHE and {SaasInstances.Count} SaaS instances.";
 
                 var allRows = cheRows.Concat(saasRows).ToList();
@@ -322,15 +322,15 @@ namespace ThreeLCS.ViewModels
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task OpenRdp()
         {
-            var row = SelectedCheRow;
-            _logger.LogDebug("OpenRdp clicked. SelectedCheInstance={Instance}", row?.Instance?.DisplayName ?? "<null>");
-            if (row == null) return;
+            var env = SelectedCheRow;
+            _logger.LogDebug("OpenRdp clicked. SelectedCheInstance={Instance}", env?.Instance?.DisplayName ?? "<null>");
+            if (env == null) return;
 
             _rdpCts?.Cancel();
             _rdpCts?.Dispose();
             _rdpCts = new CancellationTokenSource();
 
-            await _navigation.ShowRdpLaunchAsync(row);
+            await _navigation.ShowRdpLaunchAsync(env);
         }
 
         [RelayCommand]
@@ -559,7 +559,7 @@ namespace ThreeLCS.ViewModels
 
         // ── Liveness ───────────────────────────────────────────────────────────
 
-        private void FireLivenessCheck(IEnumerable<EnvironmentRow> rows)
+        private void FireLivenessCheck(IEnumerable<EnvironmentViewModel> rows)
         {
             CancelLiveness();
             _livenessCts = new CancellationTokenSource();
@@ -584,7 +584,7 @@ namespace ThreeLCS.ViewModels
               or LcsEnvironmentActionStatus.InProgressManually
               or LcsEnvironmentActionStatus.PreparingEnvironment;
 
-        private void StartOrStopPolling(IReadOnlyList<EnvironmentRow> rows)
+        private void StartOrStopPolling(IReadOnlyList<EnvironmentViewModel> rows)
         {
             CancelPolling();
             if (!rows.Any(r => IsTransitionalState(r.Instance.DeploymentState))) return;
@@ -616,7 +616,7 @@ namespace ThreeLCS.ViewModels
         /// without showing a loading indicator. Stops automatically once all
         /// environments have left the transitional state.
         /// </summary>
-        private async Task PollTransitionalStatesAsync(List<EnvironmentRow> rows, CancellationToken ct)
+        private async Task PollTransitionalStatesAsync(List<EnvironmentViewModel> rows, CancellationToken ct)
         {
             _logger.LogInformation("Deployment state polling started for {Count} transitional environment(s)", rows.Count);
             try
@@ -632,11 +632,11 @@ namespace ThreeLCS.ViewModels
                     bool anyStillTransitional = false;
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        foreach (var row in rows)
+                        foreach (var env in rows)
                         {
-                            var key = row.Instance.EnvironmentId ?? row.Instance.InstanceId ?? string.Empty;
+                            var key = env.Instance.EnvironmentId ?? env.Instance.InstanceId ?? string.Empty;
                             if (!fresh.TryGetValue(key, out var updated)) continue;
-                            row.Instance = updated;
+                            env.Instance = updated;
                             if (IsTransitionalState(updated.DeploymentState))
                                 anyStillTransitional = true;
                         }

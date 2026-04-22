@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using ThreeLCS.Models;
 using ThreeLCS.Services.Interfaces;
+using ThreeLCS.ViewModels;
 using ThreeLCS.Views;
 
 namespace ThreeLCS.Services.Implementations
@@ -125,11 +126,11 @@ namespace ThreeLCS.Services.Implementations
         public Task ShowAvailableKBsAsync(CloudHostedInstance instance) => Task.Run(() =>
             Application.Current.Dispatcher.Invoke(() => { var w = Resolve<AvailableKBsWindow>(); w.Instance = instance; w.ShowDialog(); }));
 
-        public Task ShowRdpLaunchAsync(EnvironmentRow row) => Task.Run(() =>
+        public Task ShowRdpLaunchAsync(EnvironmentViewModel env) => Task.Run(() =>
             Application.Current.Dispatcher.Invoke(() =>
             {
                 var w = Resolve<RdpLaunchWindow>();
-                w.Launch(row);
+                w.Launch(env);
                 w.ShowDialog();
             }));
 

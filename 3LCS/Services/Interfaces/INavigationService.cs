@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using ThreeLCS.Models;
+using ThreeLCS.ViewModels;
 
 namespace ThreeLCS.Services.Interfaces
 {
@@ -24,7 +25,7 @@ namespace ThreeLCS.Services.Interfaces
         Task ShowParametersAsync();
         Task ShowAvailableKBsAsync(CloudHostedInstance instance);
         Task ShowChooseMachineAsync(CloudHostedInstance instance);
-        Task ShowRdpLaunchAsync(EnvironmentRow row);
+        Task ShowRdpLaunchAsync(EnvironmentViewModel env);
         Task ShowPowerShellAsync(CloudHostedInstance instance);
         Task ShowCookieEditAsync();
         void CloseAll();
