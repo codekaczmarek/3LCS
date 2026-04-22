@@ -37,6 +37,7 @@ namespace ThreeLCS.ViewModels
         private CancellationTokenSource? _livenessCts;
         private CancellationTokenSource? _pollingCts;
         private CancellationTokenSource? _rdpCts;
+        private CancellationTokenSource? _autoRefreshCts;
 
         public ILcsApiMonitorService ApiMonitor { get; }
 
@@ -190,6 +191,9 @@ namespace ThreeLCS.ViewModels
             ApplyPackageCommand.NotifyCanExecuteChanged();
             ExportToCsvCommand.NotifyCanExecuteChanged();
             ExportToRdcManCommand.NotifyCanExecuteChanged();
+
+            if (value) StartAutoRefresh();
+            else StopAutoRefresh();
         }
 
         // ── Auth ───────────────────────────────────────────────────────────────
@@ -489,6 +493,45 @@ namespace ThreeLCS.ViewModels
 
         [RelayCommand]
         private async Task Parameters() => await _navigation.ShowParametersAsync();
+
+        // ── Liveness ───────────────────────────────────────────────────────────
+
+        // ── Auto-refresh ───────────────────────────────────────────────────────
+
+        private void StartAutoRefresh()
+        {
+            StopAutoRefresh();
+            if (!_settings.AutoRefresh) return;
+            _autoRefreshCts = new CancellationTokenSource();
+            var ct = _autoRefreshCts.Token;
+            _ = AutoRefreshLoopAsync(ct);
+        }
+
+        private void StopAutoRefresh()
+        {
+            _autoRefreshCts?.Cancel();
+            _autoRefreshCts?.Dispose();
+            _autoRefreshCts = null;
+        }
+
+        private async Task AutoRefreshLoopAsync(CancellationToken ct)
+        {
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(1), ct);
+                    if (!IsLoggedIn || SelectedProject == null || IsBusy) continue;
+                    _logger.LogDebug("Auto-refresh triggered");
+                    await Application.Current.Dispatcher.InvokeAsync(async () =>
+                    {
+                        try { await Refresh(); }
+                        catch (Exception ex) { _logger.LogWarning(ex, "Auto-refresh failed"); }
+                    });
+                }
+            }
+            catch (OperationCanceledException) { }
+        }
 
         // ── Liveness ───────────────────────────────────────────────────────────
 

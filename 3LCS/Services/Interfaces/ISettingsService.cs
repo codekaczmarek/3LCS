@@ -12,7 +12,7 @@ namespace ThreeLCS.Services.Interfaces
         bool CachingEnabled { get; set; }
         bool KeepCache { get; set; }
         bool AlwaysLogAsAdmin { get; set; }
-        bool AutoRefresh { get; }
+        bool AutoRefresh { get; set; }
         string LastProjectId { get; set; }
         string LastProjectName { get; set; }
         int LastProjectTypeId { get; set; }

@@ -83,6 +83,7 @@ namespace ThreeLCS.ViewModels
             _settings.CachingEnabled = CachingEnabled;
             _settings.KeepCache = KeepCache;
             _settings.AlwaysLogAsAdmin = AlwaysLogAsAdmin;
+            _settings.AutoRefresh = AutoRefresh;
             _settings.LivenessCheckEnabled = LivenessCheckEnabled;
             _settings.LcsUrl = LcsUrl;
             _settings.LcsUpdateUrl = LcsUpdateUrl;
