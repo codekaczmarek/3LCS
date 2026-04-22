@@ -80,6 +80,24 @@ namespace ThreeLCS.ViewModels
 
                 if (isStopped || isUnreachable || isAlreadyStarting)
                 {
+                    // Refresh from LCS first to confirm the state before acting
+                    if (isStopped || isUnreachable)
+                    {
+                        StatusText = $"Refreshing state of '{instance.DisplayName}'...";
+                        var freshList = await _envService.GetCheInstancesAsync();
+                        var fresh = freshList.FirstOrDefault(x => x.EnvironmentId == instance.EnvironmentId);
+                        if (fresh != null)
+                        {
+                            instance = fresh;
+                            await Application.Current.Dispatcher.InvokeAsync(() => _row.Instance = fresh);
+                            isStopped = fresh.DeploymentState == DeploymentState.Stopped;
+                            isAlreadyStarting = fresh.DeploymentState == DeploymentState.Starting;
+                            // If refresh shows it's active, skip the start-and-wait flow entirely
+                            if (!isStopped && !isAlreadyStarting)
+                                goto connectDirectly;
+                        }
+                    }
+
                     if (!isAlreadyStarting)
                     {
                         StatusText = $"Sending start request for '{instance.DisplayName}'...";
@@ -161,6 +179,7 @@ namespace ThreeLCS.ViewModels
                 }
 
                 // ── Step 2: Fetch credentials ──────────────────────────────────────
+                connectDirectly:
                 StatusText = "Fetching credentials...";
                 var rdpList = await Task.Run(() => _credentialsService.GetRdpConnectionDetails(instance), ct);
 
