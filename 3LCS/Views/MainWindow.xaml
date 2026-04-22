@@ -1,0 +1,268 @@
+<Window x:Class="ThreeLCS.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:tb="clr-namespace:Hardcodet.Wpf.TaskbarNotification;assembly=Hardcodet.NotifyIcon.Wpf"
+        xmlns:conv="clr-namespace:ThreeLCS.Views.Converters"
+        mc:Ignorable="d"
+        Title="{Binding WindowTitle}" Height="600" Width="1000"
+        Icon="../Assets/favicon-white.ico">
+    <Window.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
+    </Window.InputBindings>
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+        <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Menu -->
+        <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Login to LCS" Command="{Binding LoginToLcsCommand}"/>
+                <MenuItem Header="L_ogout" Command="{Binding LogoutCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Choose Project" Command="{Binding ChooseProjectCommand}"/>
+                <MenuItem Header="_Refresh" Command="{Binding RefreshCommand}"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="ExitMenuItem_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Export to CSV" Command="{Binding ExportToCsvCommand}"/>
+                <MenuItem Header="Export to _RDCMan" Command="{Binding ExportToRdcManCommand}"/>
+                <Separator/>
+                <MenuItem Header="Custom _Links" Command="{Binding CustomLinksCommand}"/>
+                <MenuItem Header="_Parameters" Command="{Binding ParametersCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Main Content -->
+        <TabControl Grid.Row="1" Margin="5">
+            <TabItem Header="Cloud-Hosted Environments">
+                <Grid>
+                    <DataGrid ItemsSource="{Binding CheInstances}"
+                              SelectedItem="{Binding SelectedCheRow}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <!-- Liveness indicator dot -->
+                            <DataGridTemplateColumn Header="" Width="18" CanUserSort="False" CanUserResize="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Ellipse Width="8" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <!-- Unknown: hollow grey ring -->
+                                                    <Setter Property="Fill" Value="Transparent"/>
+                                                    <Setter Property="Stroke" Value="#AAAAAA"/>
+                                                    <Setter Property="StrokeThickness" Value="1.5"/>
+                                                    <Setter Property="ToolTip" Value="Not yet checked"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Liveness}" Value="Checking">
+                                                            <Setter Property="Fill" Value="#5BA3E0"/>
+                                                            <Setter Property="Stroke" Value="Transparent"/>
+                                                            <Setter Property="ToolTip" Value="Checking…"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Liveness}" Value="Alive">
+                                                            <Setter Property="Fill" Value="#4CAF50"/>
+                                                            <Setter Property="Stroke" Value="Transparent"/>
+                                                            <Setter Property="ToolTip" Value="Responding on port 443/80"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Liveness}" Value="Unreachable">
+                                                            <Setter Property="Fill" Value="#E53935"/>
+                                                            <Setter Property="Stroke" Value="Transparent"/>
+                                                            <Setter Property="ToolTip" Value="Not responding on port 443 or 80"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Instance.DisplayName}" Width="200"/>
+                            <DataGridTextColumn Header="Instance ID" Binding="{Binding Instance.InstanceId}" Width="120"/>
+                            <DataGridTextColumn Header="Environment ID" Binding="{Binding Instance.EnvironmentId}" Width="120"/>
+                            <DataGridTextColumn Header="Deployment Status" Binding="{Binding Instance.DeploymentStatus}" Width="130"/>
+                            <DataGridTextColumn Header="Deployment Action" Binding="{Binding Instance.DeploymentAction}" Width="130"/>
+                            <DataGridTextColumn Header="App Build Version" Binding="{Binding Instance.CurrentApplicationBuildVersion}" Width="130"/>
+                            <DataGridTextColumn Header="App Release Name" Binding="{Binding Instance.CurrentApplicationReleaseName}" Width="130"/>
+                            <DataGridTextColumn Header="Platform Version" Binding="{Binding Instance.CurrentPlatformVersion}" Width="120"/>
+                            <DataGridTextColumn Header="Platform Release Name" Binding="{Binding Instance.CurrentPlatformReleaseName}" Width="140"/>
+                            <DataGridTextColumn Header="Build Info" Binding="{Binding Instance.BuildInfo}" Width="120"/>
+                            <DataGridTextColumn Header="Deployed By" Binding="{Binding Instance.DeployedBy}" Width="120"/>
+                            <DataGridTextColumn Header="Deployed On" Binding="{Binding Instance.DeployedOn}" Width="130"/>
+                            <DataGridTextColumn Header="Topology" Binding="{Binding Instance.TopologyDisplayName}" Width="150"/>
+                            <DataGridTextColumn Header="Topology Name" Binding="{Binding Instance.TopologyName}" Width="120"/>
+                            <DataGridTextColumn Header="Topology Type" Binding="{Binding Instance.TopologyType}" Width="100"/>
+                            <DataGridTextColumn Header="Topology Version" Binding="{Binding Instance.TopologyVersion}" Width="110"/>
+                        </DataGrid.Columns>
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Logon to Application" Command="{Binding PlacementTarget.DataContext.LogonToApplicationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Open RDP" Command="{Binding PlacementTarget.DataContext.OpenRdpCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <Separator/>
+                                <MenuItem Header="Start" Command="{Binding PlacementTarget.DataContext.StartEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Stop" Command="{Binding PlacementTarget.DataContext.StopEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <Separator/>
+                                <MenuItem Header="Add NSG Rule" Command="{Binding PlacementTarget.DataContext.AddNsgRuleCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Apply Package" Command="{Binding PlacementTarget.DataContext.ApplyPackageCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <Separator/>
+                                <MenuItem Header="LCS Instance Links">
+                                    <MenuItem Header="Instance Details" Command="{Binding PlacementTarget.DataContext.OpenInstanceDetailsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem Header="Environment Monitoring" Command="{Binding PlacementTarget.DataContext.OpenEnvironmentMonitoringCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem Header="Detailed Version Information" Command="{Binding PlacementTarget.DataContext.OpenDetailedVersionInfoCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem Header="Environment Change History" Command="{Binding PlacementTarget.DataContext.OpenEnvironmentChangeHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Delete" Command="{Binding PlacementTarget.DataContext.DeleteEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Microsoft-Managed Environments">
+                <DataGrid ItemsSource="{Binding SaasInstances}"
+                          SelectedItem="{Binding SelectedSaasRow}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <!-- Liveness indicator dot -->
+                        <DataGridTemplateColumn Header="" Width="18" CanUserSort="False" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Ellipse Width="8" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="Transparent"/>
+                                                <Setter Property="Stroke" Value="#AAAAAA"/>
+                                                <Setter Property="StrokeThickness" Value="1.5"/>
+                                                <Setter Property="ToolTip" Value="Not yet checked"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Liveness}" Value="Checking">
+                                                        <Setter Property="Fill" Value="#5BA3E0"/>
+                                                        <Setter Property="Stroke" Value="Transparent"/>
+                                                        <Setter Property="ToolTip" Value="Checking…"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Liveness}" Value="Alive">
+                                                        <Setter Property="Fill" Value="#4CAF50"/>
+                                                        <Setter Property="Stroke" Value="Transparent"/>
+                                                        <Setter Property="ToolTip" Value="Responding on port 443/80"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Liveness}" Value="Unreachable">
+                                                        <Setter Property="Fill" Value="#E53935"/>
+                                                        <Setter Property="Stroke" Value="Transparent"/>
+                                                        <Setter Property="ToolTip" Value="Not responding on port 443 or 80"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Instance.DisplayName}" Width="200"/>
+                        <DataGridTextColumn Header="Instance ID" Binding="{Binding Instance.InstanceId}" Width="120"/>
+                        <DataGridTextColumn Header="Environment ID" Binding="{Binding Instance.EnvironmentId}" Width="120"/>
+                        <DataGridTextColumn Header="Deployment Status" Binding="{Binding Instance.DeploymentStatus}" Width="130"/>
+                        <DataGridTextColumn Header="Deployment Action" Binding="{Binding Instance.DeploymentAction}" Width="130"/>
+                        <DataGridTextColumn Header="App Build Version" Binding="{Binding Instance.CurrentApplicationBuildVersion}" Width="130"/>
+                        <DataGridTextColumn Header="App Release Name" Binding="{Binding Instance.CurrentApplicationReleaseName}" Width="130"/>
+                        <DataGridTextColumn Header="Platform Version" Binding="{Binding Instance.CurrentPlatformVersion}" Width="120"/>
+                        <DataGridTextColumn Header="Platform Release Name" Binding="{Binding Instance.CurrentPlatformReleaseName}" Width="140"/>
+                        <DataGridTextColumn Header="Build Info" Binding="{Binding Instance.BuildInfo}" Width="120"/>
+                        <DataGridTextColumn Header="Deployed By" Binding="{Binding Instance.DeployedBy}" Width="120"/>
+                        <DataGridTextColumn Header="Deployed On" Binding="{Binding Instance.DeployedOn}" Width="130"/>
+                        <DataGridTextColumn Header="Topology" Binding="{Binding Instance.TopologyDisplayName}" Width="150"/>
+                        <DataGridTextColumn Header="Topology Name" Binding="{Binding Instance.TopologyName}" Width="120"/>
+                        <DataGridTextColumn Header="Topology Type" Binding="{Binding Instance.TopologyType}" Width="100"/>
+                        <DataGridTextColumn Header="Topology Version" Binding="{Binding Instance.TopologyVersion}" Width="110"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Busy overlay -->
+        <Grid Grid.Row="1" Background="#88000000" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="200" Height="20"/>
+                <TextBlock Text="Loading..." Foreground="White" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- API Monitor panel (collapsible) -->
+        <Border Grid.Row="2" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0"
+                Background="#F9F9F9"
+                Visibility="{Binding IsMonitorOpen, Converter={StaticResource BoolToVis}}">
+            <ListView ItemsSource="{Binding ApiMonitor.RecentCalls}"
+                      MaxHeight="180"
+                      FontSize="11"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Time" Width="60"
+                                        DisplayMemberBinding="{Binding StartedAt, StringFormat=HH:mm:ss}"/>
+                        <GridViewColumn Header="Method" Width="45"
+                                        DisplayMemberBinding="{Binding Method}"/>
+                        <GridViewColumn Header="URL" Width="380"
+                                        DisplayMemberBinding="{Binding ShortUrl}"/>
+                        <GridViewColumn Header="Status" Width="110"
+                                        DisplayMemberBinding="{Binding Status}"/>
+                        <GridViewColumn Header="ms" Width="60"
+                                        DisplayMemberBinding="{Binding DurationMs}"/>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
+
+        <!-- Status bar -->
+        <StatusBar Grid.Row="3">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusText}"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock Text="{Binding ApiMonitor.CurrentOperation}" Foreground="Gray" FontStyle="Italic"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <ToggleButton IsChecked="{Binding IsMonitorOpen}"
+                              Padding="6,1" FontSize="11" Cursor="Hand"
+                              BorderThickness="0" Background="Transparent"
+                              ToolTip="Toggle API call monitor">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="API Monitor"/>
+                        <TextBlock Margin="4,0,0,0"
+                                   Text="{Binding ApiMonitor.ActiveCallCount}"
+                                   Foreground="SteelBlue" FontWeight="Bold"/>
+                    </StackPanel>
+                </ToggleButton>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- Taskbar icon -->
+        <tb:TaskbarIcon x:Name="TrayIcon" Grid.Row="0"                        IconSource="../Assets/favicon-white.ico"
+                        ToolTipText="3LCS"/>
+    </Grid>
+</Window>

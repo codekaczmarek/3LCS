@@ -1,0 +1,29 @@
+<Window x:Class="ThreeLCS.Views.UpcomingUpdatesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:ThreeLCS.Views.Converters"
+        Title="Upcoming Updates" Height="500" Width="900" WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <DataGrid Grid.Row="0" ItemsSource="{Binding Updates}" AutoGenerateColumns="False" IsReadOnly="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Environment" Binding="{Binding EnvironmentName}" Width="150"/>
+                <DataGridTextColumn Header="Event" Binding="{Binding EventName}" Width="150"/>
+                <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="100"/>
+                <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="100"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                <DataGridTextColumn Header="Release" Binding="{Binding ReleaseName}" Width="150"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <Grid Grid.Row="0" Background="#88000000" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+            <ProgressBar IsIndeterminate="True" Width="200" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+        <Button Grid.Row="1" Content="Close" Command="{Binding CloseCommand}" Width="80" HorizontalAlignment="Right" Margin="5"/>
+    </Grid>
+</Window>

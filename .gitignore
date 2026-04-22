@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+publish/
+
+# VS / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# WebView2 runtime data
+*.exe.WebView2/
+
+# User settings (contains cookies / tokens)
+usersettings.json
+
+# OS
+Thumbs.db
+.DS_Store

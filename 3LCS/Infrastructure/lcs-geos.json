@@ -1,0 +1,37 @@
+[
+  {
+    "Name": "Global",
+    "LcsUrl": "https://lcs.dynamics.com",
+    "LcsUpdateUrl": "https://update.lcs.dynamics.com",
+    "LcsDiagUrl": "https://diag.lcs.dynamics.com",
+    "LcsFixUrl": "https://fix.lcs.dynamics.com"
+  },
+  {
+    "Name": "EU",
+    "LcsUrl": "https://eu.lcs.dynamics.com",
+    "LcsUpdateUrl": "https://update.eu.lcs.dynamics.com",
+    "LcsDiagUrl": "https://diag.eu.lcs.dynamics.com",
+    "LcsFixUrl": "https://fix.eu.lcs.dynamics.com"
+  },
+  {
+    "Name": "UAE",
+    "LcsUrl": "https://uae.lcs.dynamics.com",
+    "LcsUpdateUrl": "https://update.uae.lcs.dynamics.com",
+    "LcsDiagUrl": "https://diag.uae.lcs.dynamics.com",
+    "LcsFixUrl": "https://fix.uae.lcs.dynamics.com"
+  },
+  {
+    "Name": "China",
+    "LcsUrl": "https://lcs.dynamics.cn",
+    "LcsUpdateUrl": "https://update.lcs.dynamics.cn",
+    "LcsDiagUrl": "https://diag.lcs.dynamics.cn",
+    "LcsFixUrl": "https://fix.lcs.dynamics.cn"
+  },
+  {
+    "Name": "Custom",
+    "LcsUrl": "",
+    "LcsUpdateUrl": "",
+    "LcsDiagUrl": "",
+    "LcsFixUrl": ""
+  }
+]

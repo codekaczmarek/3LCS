@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0)'
+        required: true
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $ver = "${{ github.event.inputs.version }}"
+          } else {
+            $ver = "${{ github.ref_name }}".TrimStart('v')
+          }
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          echo "TAG=v$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore 3LCS/3LCS.csproj
+
+      - name: Build & Publish (framework-dependent)
+        run: |
+          dotnet publish 3LCS/3LCS.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained false `
+            -p:Version=${{ steps.version.outputs.VERSION }} `
+            -p:AssemblyVersion=${{ steps.version.outputs.VERSION }}.0 `
+            -o publish/framework-dependent
+
+      - name: Build & Publish (self-contained)
+        run: |
+          dotnet publish 3LCS/3LCS.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=${{ steps.version.outputs.VERSION }} `
+            -p:AssemblyVersion=${{ steps.version.outputs.VERSION }}.0 `
+            -o publish/self-contained
+
+      - name: Zip framework-dependent
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path publish/framework-dependent/* `
+            -DestinationPath "3LCS-${{ steps.version.outputs.VERSION }}-win-x64-framework-dependent.zip"
+
+      - name: Zip self-contained
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path publish/self-contained/3LCS.exe `
+            -DestinationPath "3LCS-${{ steps.version.outputs.VERSION }}-win-x64-self-contained.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: "3LCS ${{ steps.version.outputs.VERSION }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            3LCS-${{ steps.version.outputs.VERSION }}-win-x64-framework-dependent.zip
+            3LCS-${{ steps.version.outputs.VERSION }}-win-x64-self-contained.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

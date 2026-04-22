@@ -1,0 +1,15 @@
+<Window x:Class="ThreeLCS.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About 3LCS" Height="250" Width="400" WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="20">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="{Binding AppName}" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding Version, StringFormat='Version {0}'}" HorizontalAlignment="Center" Margin="0,5"/>
+            <TextBlock Text="A WPF rewrite of 2LCS - Lifecycle Services Client" HorizontalAlignment="Center" Margin="0,5" TextWrapping="Wrap"/>
+            <Button Content="Open GitHub" Command="{Binding OpenGithubCommand}" Margin="0,15,0,5" Width="120"/>
+            <Button Content="Close" Command="{Binding CloseCommand}" Width="80"/>
+        </StackPanel>
+    </Grid>
+</Window>
