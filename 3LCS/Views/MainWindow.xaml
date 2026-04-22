@@ -16,7 +16,39 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
         <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
 
-        <!-- ── Command bar button (Fluent-styled icon+label button) ───────── -->
+        <!-- ── Liveness icon cell template (shared by both grids) ─────────── -->
+        <DataTemplate x:Key="LivenessCellTemplate">
+            <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                       FontSize="14"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       SnapsToDevicePixels="True">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Text"       Value="&#xEB50;"/><!-- CircleRing = unknown -->
+                        <Setter Property="Foreground"  Value="#AAAAAA"/>
+                        <Setter Property="ToolTip"     Value="Not yet checked"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Liveness}" Value="Checking">
+                                <Setter Property="Text"      Value="&#xE72C;"/><!-- Refresh -->
+                                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"/>
+                                <Setter Property="ToolTip"   Value="Checking…"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Liveness}" Value="Alive">
+                                <Setter Property="Text"      Value="&#xF167;"/><!-- CheckmarkCircle -->
+                                <Setter Property="Foreground" Value="#107C10"/>
+                                <Setter Property="ToolTip"   Value="Responding on port 443/80"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Liveness}" Value="Unreachable">
+                                <Setter Property="Text"      Value="&#xF196;"/><!-- DismissCircle -->
+                                <Setter Property="Foreground" Value="#C42B1C"/>
+                                <Setter Property="ToolTip"   Value="Not responding on port 443 or 80"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </DataTemplate>
         <Style x:Key="CmdBtn" TargetType="Button">
             <Setter Property="Background"       Value="Transparent"/>
             <Setter Property="BorderThickness"  Value="0"/>
@@ -164,48 +196,18 @@
                               SelectionMode="Single"
                               RowHeaderWidth="0"
                               SelectionUnit="FullRow"
-                              CanUserAddRows="False">
+                              CanUserAddRows="False"
+                              FontSize="11">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                <Setter Property="MinHeight" Value="24"/>
                                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
-                            <!-- Liveness indicator dot -->
-                            <DataGridTemplateColumn Header="" Width="18" CanUserSort="False" CanUserResize="False">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Ellipse Width="8" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <Ellipse.Style>
-                                                <Style TargetType="Ellipse">
-                                                    <!-- Unknown: hollow grey ring -->
-                                                    <Setter Property="Fill" Value="Transparent"/>
-                                                    <Setter Property="Stroke" Value="#AAAAAA"/>
-                                                    <Setter Property="StrokeThickness" Value="1.5"/>
-                                                    <Setter Property="ToolTip" Value="Not yet checked"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Liveness}" Value="Checking">
-                                                            <Setter Property="Fill" Value="#5BA3E0"/>
-                                                            <Setter Property="Stroke" Value="Transparent"/>
-                                                            <Setter Property="ToolTip" Value="Checking…"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding Liveness}" Value="Alive">
-                                                            <Setter Property="Fill" Value="#4CAF50"/>
-                                                            <Setter Property="Stroke" Value="Transparent"/>
-                                                            <Setter Property="ToolTip" Value="Responding on port 443/80"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding Liveness}" Value="Unreachable">
-                                                            <Setter Property="Fill" Value="#E53935"/>
-                                                            <Setter Property="Stroke" Value="Transparent"/>
-                                                            <Setter Property="ToolTip" Value="Not responding on port 443 or 80"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Ellipse.Style>
-                                        </Ellipse>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
+                            <!-- Liveness icon -->
+                            <DataGridTemplateColumn Header="" Width="28" CanUserSort="False" CanUserResize="False"
+                                                    CellTemplate="{StaticResource LivenessCellTemplate}"/>
                             <DataGridTextColumn Header="Name" Binding="{Binding Instance.DisplayName}" Width="200"/>
                             <DataGridTextColumn Header="Instance ID" Binding="{Binding Instance.InstanceId}" Width="120"/>
                             <DataGridTextColumn Header="Environment ID" Binding="{Binding Instance.EnvironmentId}" Width="120"/>
@@ -252,49 +254,20 @@
                           SelectedItem="{Binding SelectedSaasRow}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
-                    RowHeaderWidth="0"
+                          RowHeaderWidth="0"
                           SelectionUnit="FullRow"
-                          CanUserAddRows="False">
+                          CanUserAddRows="False"
+                          FontSize="11">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                            <Setter Property="MinHeight" Value="24"/>
                             <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
                         </Style>
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
-                        <!-- Liveness indicator dot -->
-                        <DataGridTemplateColumn Header="" Width="18" CanUserSort="False" CanUserResize="False">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Ellipse Width="8" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Ellipse.Style>
-                                            <Style TargetType="Ellipse">
-                                                <Setter Property="Fill" Value="Transparent"/>
-                                                <Setter Property="Stroke" Value="#AAAAAA"/>
-                                                <Setter Property="StrokeThickness" Value="1.5"/>
-                                                <Setter Property="ToolTip" Value="Not yet checked"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Liveness}" Value="Checking">
-                                                        <Setter Property="Fill" Value="#5BA3E0"/>
-                                                        <Setter Property="Stroke" Value="Transparent"/>
-                                                        <Setter Property="ToolTip" Value="Checking…"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Liveness}" Value="Alive">
-                                                        <Setter Property="Fill" Value="#4CAF50"/>
-                                                        <Setter Property="Stroke" Value="Transparent"/>
-                                                        <Setter Property="ToolTip" Value="Responding on port 443/80"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Liveness}" Value="Unreachable">
-                                                        <Setter Property="Fill" Value="#E53935"/>
-                                                        <Setter Property="Stroke" Value="Transparent"/>
-                                                        <Setter Property="ToolTip" Value="Not responding on port 443 or 80"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Ellipse.Style>
-                                    </Ellipse>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <!-- Liveness icon -->
+                        <DataGridTemplateColumn Header="" Width="28" CanUserSort="False" CanUserResize="False"
+                                                CellTemplate="{StaticResource LivenessCellTemplate}"/>
                         <DataGridTextColumn Header="Name" Binding="{Binding Instance.DisplayName}" Width="200"/>
                         <DataGridTextColumn Header="Instance ID" Binding="{Binding Instance.InstanceId}" Width="120"/>
                         <DataGridTextColumn Header="Environment ID" Binding="{Binding Instance.EnvironmentId}" Width="120"/>
