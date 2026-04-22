@@ -208,8 +208,10 @@
                                             BorderBrush="{StaticResource BorderColorBrush}"
                                             BorderThickness="1"
                                             CornerRadius="4"
-                                            Padding="4"
-                                            Effect="{DynamicResource {x:Static SystemParameters.DropShadowKey}}">
+                                            Padding="4">
+                                        <Border.Effect>
+                                            <DropShadowEffect Color="#000000" Opacity="0.12" BlurRadius="8" ShadowDepth="2" Direction="270"/>
+                                        </Border.Effect>
                                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"
                                                     Grid.IsSharedSizeScope="True"/>
                                     </Border>
