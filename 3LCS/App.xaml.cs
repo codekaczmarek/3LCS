@@ -73,6 +73,7 @@ namespace ThreeLCS
                     services.AddTransient<ParametersViewModel>();
                     services.AddTransient<PowerShellViewModel>();
                     services.AddTransient<RdpConnectViewModel>();
+                    services.AddTransient<RdpLaunchViewModel>();
                     services.AddTransient<UpcomingUpdatesViewModel>();
                     services.AddTransient<AboutViewModel>();
                     services.AddTransient<AssetLibrarySearchViewModel>();
@@ -97,6 +98,7 @@ namespace ThreeLCS
                     services.AddTransient<ParametersWindow>();
                     services.AddTransient<PowerShellWindow>();
                     services.AddTransient<RdpConnectWindow>();
+                    services.AddTransient<RdpLaunchWindow>();
                     services.AddTransient<UpcomingUpdatesWindow>();
                     services.AddTransient<AssetLibrarySearchWindow>();
                 })

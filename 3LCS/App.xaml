@@ -4,6 +4,7 @@
              ThemeMode="System">
     <Application.Resources>
         <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <!-- ── Global DataGrid compactness ───────────────────────────────── -->
             <Style TargetType="DataGrid">
                 <Setter Property="FontSize"       Value="11"/>

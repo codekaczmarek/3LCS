@@ -19,7 +19,7 @@
                     <StackPanel>
                         <CheckBox Content="Enable Caching" IsChecked="{Binding CachingEnabled}" Margin="0,2"/>
                         <CheckBox Content="Keep Cache" IsChecked="{Binding KeepCache}" Margin="0,2"/>
-                        <CheckBox Content="Always Log as Admin" IsChecked="{Binding AlwaysLogAsAdmin}" IsEnabled="False" Margin="0,2"/>
+                        <CheckBox Content="Always Log as Admin" IsChecked="{Binding AlwaysLogAsAdmin}" Margin="0,2"/>
                         <CheckBox Content="Auto Refresh" IsChecked="{Binding AutoRefresh}" IsEnabled="False" Margin="0,2"/>
                         <CheckBox Content="Check environment liveness (TCP port 443/80)" IsChecked="{Binding LivenessCheckEnabled}" Margin="0,2"/>
                     </StackPanel>
