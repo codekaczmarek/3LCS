@@ -36,6 +36,7 @@ namespace ThreeLCS.ViewModels
         private bool _autoLoginInProgress;
         private CancellationTokenSource? _livenessCts;
         private CancellationTokenSource? _pollingCts;
+        private CancellationTokenSource? _rdpCts;
 
         public ILcsApiMonitorService ApiMonitor { get; }
 
@@ -292,16 +293,87 @@ namespace ThreeLCS.ViewModels
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task OpenRdp()
         {
-            var instance = SelectedCheInstance;
+            var row = SelectedCheRow;
+            var instance = row?.Instance;
             _logger.LogDebug("OpenRdp clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
+
+            // Cancel any previous in-flight start-and-connect
+            _rdpCts?.Cancel();
+            _rdpCts?.Dispose();
+            _rdpCts = new CancellationTokenSource();
+            var ct = _rdpCts.Token;
+
             IsBusy = true;
-            StatusText = "Getting RDP details...";
             try
             {
-                var rdpList = await Task.Run(() => _credentialsService.GetRdpConnectionDetails(instance));
+                bool isStopped = instance.DeploymentState == DeploymentState.Stopped;
+                bool isUnreachable = row!.Liveness == LivenessStatus.Unreachable;
+                bool isAlreadyStarting = instance.DeploymentState == DeploymentState.Starting;
+
+                bool shouldWaitForStart = isAlreadyStarting
+                    || ((isStopped || isUnreachable) && _dialog.ShowConfirm(
+                        $"'{instance.DisplayName}' appears to be {(isStopped ? "stopped" : "unreachable")}.\n\nStart it before connecting?",
+                        "Start Machine?"));
+
+                if (shouldWaitForStart)
+                {
+                    if (!isAlreadyStarting)
+                    {
+                        StatusText = "Starting machine...";
+                        bool ok = await _envService.StartStopDeploymentAsync(instance, "start");
+                        if (!ok)
+                        {
+                            _dialog.ShowError("LCS rejected the start request. The environment may not support remote start.");
+                            return;
+                        }
+                    }
+
+                    // Poll every 30 s until DeploymentState becomes Active (max 24 polls = 12 min)
+                    StatusText = "Waiting for machine to start...";
+                    bool becameActive = false;
+                    for (int i = 0; i < 24 && !ct.IsCancellationRequested; i++)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(30), ct);
+
+                        var action = await _envService.GetOngoingActionDetailsAsync(instance);
+                        if (action != null && IsActionInProgress(action.Status))
+                        {
+                            StatusText = $"Waiting for machine to start... ({action.ActionStatusText ?? action.Status.ToString()})";
+                            continue;
+                        }
+
+                        // Action done or no action — refresh state
+                        var freshList = await _envService.GetCheInstancesAsync();
+                        var fresh = freshList.FirstOrDefault(x => x.EnvironmentId == instance.EnvironmentId);
+                        if (fresh != null)
+                        {
+                            instance = fresh;
+                            await Application.Current.Dispatcher.InvokeAsync(() => row!.Instance = fresh);
+                            if (fresh.DeploymentState == DeploymentState.Active)
+                            {
+                                becameActive = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    ct.ThrowIfCancellationRequested();
+
+                    if (!becameActive)
+                    {
+                        if (!_dialog.ShowConfirm(
+                            "The machine did not become active within the expected time.\n\nConnect anyway?",
+                            "Connect Anyway?"))
+                            return;
+                    }
+                }
+
+                StatusText = "Getting RDP details...";
+                var rdpList = await Task.Run(() => _credentialsService.GetRdpConnectionDetails(instance), ct);
                 await _rdpService.ConnectAsync(instance, rdpList);
             }
+            catch (OperationCanceledException) { }
             catch (Exception ex) { _dialog.ShowError(ex.Message); }
             finally { IsBusy = false; StatusText = "Ready"; }
         }
@@ -512,6 +584,11 @@ namespace ThreeLCS.ViewModels
 
         private static bool IsTransitionalState(DeploymentState state) =>
             state is DeploymentState.Starting or DeploymentState.Stopping;
+
+        private static bool IsActionInProgress(LcsEnvironmentActionStatus s) =>
+            s is LcsEnvironmentActionStatus.InProgress
+              or LcsEnvironmentActionStatus.InProgressManually
+              or LcsEnvironmentActionStatus.PreparingEnvironment;
 
         private void StartOrStopPolling(IReadOnlyList<EnvironmentRow> rows)
         {

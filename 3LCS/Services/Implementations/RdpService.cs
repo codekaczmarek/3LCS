@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -14,11 +14,13 @@ namespace ThreeLCS.Services.Implementations
     {
         private readonly ILcsCredentialsService _credentials;
         private readonly IDialogService _dialog;
+        private readonly ISettingsService _settings;
 
-        public RdpService(ILcsCredentialsService credentials, IDialogService dialog)
+        public RdpService(ILcsCredentialsService credentials, IDialogService dialog, ISettingsService settings)
         {
             _credentials = credentials;
             _dialog = dialog;
+            _settings = settings;
         }
 
         public async Task ConnectAsync(CloudHostedInstance instance, List<RDPConnectionDetails> rdpList)
@@ -30,10 +32,24 @@ namespace ThreeLCS.Services.Implementations
             }
 
             RDPConnectionDetails? selected;
-            if (rdpList.Count == 1)
+            if (_settings.AlwaysLogAsAdmin)
+            {
+                // Admin accounts have usernames starting with "Admin" (e.g. "Adminf7c4d238ef")
+                selected = rdpList.Find(r => r.Username?.StartsWith("Admin", StringComparison.OrdinalIgnoreCase) == true);
+                if (selected == null)
+                {
+                    _dialog.ShowError("No admin account found in the credentials list. Falling back to manual selection.");
+                    selected = ChooseUser(rdpList);
+                }
+            }
+            else if (rdpList.Count == 1)
+            {
                 selected = rdpList[0];
+            }
             else
+            {
                 selected = ChooseUser(rdpList);
+            }
 
             if (selected == null) return;
 

@@ -21,6 +21,7 @@ namespace ThreeLCS.Services.Implementations
         public string LcsDiagUrl { get; set; } = string.Empty;
         public string LcsFixUrl { get; set; } = string.Empty;
         public bool LivenessCheckEnabled { get; set; } = true;
+        public bool AlwaysLogAsAdmin { get; set; } = false;
 
         public static AppUserSettings Load()
         {

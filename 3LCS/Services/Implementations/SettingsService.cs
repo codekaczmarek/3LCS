@@ -37,7 +37,7 @@ namespace ThreeLCS.Services.Implementations
             set => _user.LcsFixUrl = value;
         }
 
-        public bool AlwaysLogAsAdmin => bool.TryParse(_config["App:AlwaysLogAsAdmin"], out var v) && v;
+        public bool AlwaysLogAsAdmin { get => _user.AlwaysLogAsAdmin; set => _user.AlwaysLogAsAdmin = value; }
         public bool AutoRefresh => bool.TryParse(_config["App:AutoRefresh"], out var v) && v;
 
         public string Cookie { get => _user.Cookie; set => _user.Cookie = value; }
