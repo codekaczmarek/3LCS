@@ -20,6 +20,7 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsEnvironmentService _envService;
         private readonly ILcsCredentialsService _credentialsService;
         private readonly ISettingsService _settings;
+        private readonly MainViewModel _mainViewModel;
         private readonly ILogger<RdpLaunchViewModel> _logger;
 
         private CancellationTokenSource? _cts;
@@ -43,18 +44,19 @@ namespace ThreeLCS.ViewModels
         // Polling intervals
         private const int TextRefreshSeconds = 1;
         private const int LivenessCheckSeconds = 3;
-        private const int LcsStateCheckSeconds = 60;
         private const int TimeoutMinutes = 12;
 
         public RdpLaunchViewModel(
             ILcsEnvironmentService envService,
             ILcsCredentialsService credentialsService,
             ISettingsService settings,
+            MainViewModel mainViewModel,
             ILogger<RdpLaunchViewModel> logger)
         {
             _envService = envService;
             _credentialsService = credentialsService;
             _settings = settings;
+            _mainViewModel = mainViewModel;
             _logger = logger;
         }
 
@@ -108,24 +110,36 @@ namespace ThreeLCS.ViewModels
                             IsBusy = false;
                             return;
                         }
+
+                        // Kick off MainViewModel's polling loop so MainWindow reflects state changes
+                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.TriggerDeploymentPolling());
                     }
 
-                    // ── Wait loop: 1 s text refresh, 3 s TCP probe, 60 s LCS state ─
+                    // ── Wait loop: 1 s text refresh, 3 s TCP probe ─────────────────
+                    // DeploymentState updates flow via MainViewModel.PollTransitionalStatesAsync
+                    // (every 30 s) which writes to the same _row.Instance object.
                     var host = GetHost(instance);
                     bool becameReachable = false;
                     var sw = Stopwatch.StartNew();
                     var maxWait = TimeSpan.FromMinutes(TimeoutMinutes);
                     int secondsSinceLiveness = 0;
-                    int secondsSinceLcs = 0;
 
                     while (sw.Elapsed < maxWait && !ct.IsCancellationRequested)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(TextRefreshSeconds), ct);
                         secondsSinceLiveness++;
-                        secondsSinceLcs++;
 
                         var elapsed = sw.Elapsed;
                         StatusText = $"Waiting for '{instance.DisplayName}' to start… {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s";
+
+                        // Abort if MainViewModel's poller reports the environment went back to Stopped
+                        var currentState = _row!.Instance.DeploymentState;
+                        if (currentState == DeploymentState.Stopped || currentState == DeploymentState.Undefined)
+                        {
+                            StatusText = $"Start failed — machine returned to '{currentState}' state.";
+                            IsBusy = false;
+                            return;
+                        }
 
                         // TCP liveness check every 3 seconds
                         if (host != null && secondsSinceLiveness >= LivenessCheckSeconds)
@@ -134,36 +148,9 @@ namespace ThreeLCS.ViewModels
                             if (await IsReachableAsync(host, ct))
                             {
                                 becameReachable = true;
-                                // Refresh LCS state to get fresh instance data
-                                var freshList = await _envService.GetCheInstancesAsync();
-                                var fresh = freshList.FirstOrDefault(x => x.EnvironmentId == instance.EnvironmentId);
-                                if (fresh != null)
-                                {
-                                    instance = fresh;
-                                    await Application.Current.Dispatcher.InvokeAsync(() => _row.Instance = fresh);
-                                }
+                                // Pick up the latest instance data written by MainViewModel's poller
+                                instance = _row!.Instance;
                                 break;
-                            }
-                        }
-
-                        // LCS state check every 60 seconds (failure detection)
-                        if (secondsSinceLcs >= LcsStateCheckSeconds)
-                        {
-                            secondsSinceLcs = 0;
-                            var freshList = await _envService.GetCheInstancesAsync();
-                            var fresh = freshList.FirstOrDefault(x => x.EnvironmentId == instance.EnvironmentId);
-                            if (fresh != null)
-                            {
-                                instance = fresh;
-                                await Application.Current.Dispatcher.InvokeAsync(() => _row.Instance = fresh);
-                                // If it went back to Stopped or hit a terminal failure state — abort
-                                if (fresh.DeploymentState == DeploymentState.Stopped
-                                    || fresh.DeploymentState == DeploymentState.Undefined)
-                                {
-                                    StatusText = $"Start failed — machine returned to '{fresh.DeploymentState}' state.";
-                                    IsBusy = false;
-                                    return;
-                                }
                             }
                         }
                     }

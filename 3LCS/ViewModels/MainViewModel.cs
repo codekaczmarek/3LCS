@@ -593,6 +593,16 @@ namespace ThreeLCS.ViewModels
             _ = PollTransitionalStatesAsync(rows.ToList(), _pollingCts.Token);
         }
 
+        /// <summary>
+        /// Called externally (e.g. from RdpLaunchViewModel) after a start/stop request is
+        /// sent so that MainWindow reflects state changes via the same 30-second poll loop.
+        /// </summary>
+        public void TriggerDeploymentPolling()
+        {
+            var all = CheInstances.Concat(SaasInstances).ToList();
+            StartOrStopPolling(all);
+        }
+
         private void CancelPolling()
         {
             _pollingCts?.Cancel();
