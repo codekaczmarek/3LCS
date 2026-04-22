@@ -8,7 +8,7 @@
         mc:Ignorable="d"
         Title="{Binding WindowTitle}" Height="600" Width="1000"
         Icon="../Assets/favicon-white.ico"
-        Background="{StaticResource BackgroundBrush}">
+        Background="#F5F5F5">
     <Window.InputBindings>
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
     </Window.InputBindings>
