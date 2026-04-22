@@ -35,6 +35,7 @@ namespace ThreeLCS.ViewModels
         private readonly ILogger<MainViewModel> _logger;
         private bool _autoLoginInProgress;
         private CancellationTokenSource? _livenessCts;
+        private CancellationTokenSource? _pollingCts;
 
         public ILcsApiMonitorService ApiMonitor { get; }
 
@@ -217,6 +218,7 @@ namespace ThreeLCS.ViewModels
             SelectedProject = null;
             WindowTitle = "3LCS";
             CancelLiveness();
+            CancelPolling();
             CheInstances.Clear();
             SaasInstances.Clear();
         }
@@ -233,6 +235,7 @@ namespace ThreeLCS.ViewModels
             }
             IsBusy = true;
             StatusText = "Loading environments...";
+            CancelPolling();
             try
             {
                 var che = await _envService.GetCheInstancesAsync();
@@ -245,8 +248,10 @@ namespace ThreeLCS.ViewModels
                 SaasInstances = new ObservableCollection<EnvironmentRow>(saasRows);
                 StatusText = $"Loaded {CheInstances.Count} CHE and {SaasInstances.Count} SaaS instances.";
 
+                var allRows = cheRows.Concat(saasRows).ToList();
                 if (_settings.LivenessCheckEnabled)
-                    FireLivenessCheck(cheRows.Concat(saasRows));
+                    FireLivenessCheck(allRows);
+                StartOrStopPolling(allRows);
             }
             catch (Exception ex)
             {
@@ -501,6 +506,74 @@ namespace ThreeLCS.ViewModels
             _livenessCts?.Cancel();
             _livenessCts?.Dispose();
             _livenessCts = null;
+        }
+
+        // ── Deployment state polling ───────────────────────────────────────────
+
+        private static bool IsTransitionalState(DeploymentState state) =>
+            state is DeploymentState.Starting or DeploymentState.Stopping;
+
+        private void StartOrStopPolling(IReadOnlyList<EnvironmentRow> rows)
+        {
+            CancelPolling();
+            if (!rows.Any(r => IsTransitionalState(r.Instance.DeploymentState))) return;
+
+            _pollingCts = new CancellationTokenSource();
+            _ = PollTransitionalStatesAsync(rows.ToList(), _pollingCts.Token);
+        }
+
+        private void CancelPolling()
+        {
+            _pollingCts?.Cancel();
+            _pollingCts?.Dispose();
+            _pollingCts = null;
+        }
+
+        /// <summary>
+        /// Silently polls LCS every 30 seconds while any environment is in a
+        /// transitional state (Starting/Stopping). Updates instance data in-place
+        /// without showing a loading indicator. Stops automatically once all
+        /// environments have left the transitional state.
+        /// </summary>
+        private async Task PollTransitionalStatesAsync(List<EnvironmentRow> rows, CancellationToken ct)
+        {
+            _logger.LogInformation("Deployment state polling started for {Count} transitional environment(s)", rows.Count);
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30), ct);
+
+                    var che = await _envService.GetCheInstancesAsync();
+                    var saas = await _envService.GetSaasInstancesAsync();
+                    var fresh = che.Concat(saas).ToDictionary(i => i.EnvironmentId ?? i.InstanceId ?? string.Empty);
+
+                    bool anyStillTransitional = false;
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        foreach (var row in rows)
+                        {
+                            var key = row.Instance.EnvironmentId ?? row.Instance.InstanceId ?? string.Empty;
+                            if (!fresh.TryGetValue(key, out var updated)) continue;
+                            row.Instance = updated;
+                            if (IsTransitionalState(updated.DeploymentState))
+                                anyStillTransitional = true;
+                        }
+                    });
+
+                    _logger.LogInformation("Deployment state poll complete. AnyStillTransitional={AnyStillTransitional}", anyStillTransitional);
+                    if (!anyStillTransitional) break;
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Deployment state polling encountered an error — stopping");
+            }
+            finally
+            {
+                _logger.LogInformation("Deployment state polling stopped");
+            }
         }
     }
 }

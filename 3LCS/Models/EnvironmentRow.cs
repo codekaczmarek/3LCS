@@ -8,11 +8,12 @@ namespace ThreeLCS.Models
     /// </summary>
     public partial class EnvironmentRow : ObservableObject
     {
-        public CloudHostedInstance Instance { get; }
+        [ObservableProperty]
+        private CloudHostedInstance _instance;
 
         [ObservableProperty]
         private LivenessStatus _liveness = LivenessStatus.Unknown;
 
-        public EnvironmentRow(CloudHostedInstance instance) => Instance = instance;
+        public EnvironmentRow(CloudHostedInstance instance) => _instance = instance;
     }
 }
