@@ -45,6 +45,9 @@ namespace ThreeLCS.ViewModels
         private const int TextRefreshSeconds = 1;
         private const int LivenessCheckSeconds = 3;
         private const int TimeoutMinutes = 12;
+        // LCS takes time to reflect the new state after a start request.
+        // Don't check for abort conditions until the first poll has had a chance to run.
+        private const int StartGracePeriodSeconds = 65;
 
         public RdpLaunchViewModel(
             ILcsEnvironmentService envService,
@@ -132,13 +135,17 @@ namespace ThreeLCS.ViewModels
                         var elapsed = sw.Elapsed;
                         StatusText = $"Waiting for '{instance.DisplayName}' to start… {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s";
 
-                        // Abort if MainViewModel's poller reports the environment went back to Stopped
-                        var currentState = _env!.Instance.DeploymentState;
-                        if (currentState == DeploymentState.Stopped || currentState == DeploymentState.Undefined)
+                        // Abort if MainViewModel's poller reports the environment went back to Stopped.
+                        // Only check after the grace period so LCS has time to reflect the new state.
+                        if (sw.Elapsed.TotalSeconds > StartGracePeriodSeconds)
                         {
-                            StatusText = $"Start failed — machine returned to '{currentState}' state.";
-                            IsBusy = false;
-                            return;
+                            var currentState = _env!.Instance.DeploymentState;
+                            if (currentState == DeploymentState.Stopped || currentState == DeploymentState.Undefined)
+                            {
+                                StatusText = $"Start failed — machine returned to '{currentState}' state.";
+                                IsBusy = false;
+                                return;
+                            }
                         }
 
                         // TCP liveness check every 3 seconds
