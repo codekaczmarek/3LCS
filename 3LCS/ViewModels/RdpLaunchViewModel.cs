@@ -1,11 +1,10 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -21,10 +20,9 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsCredentialsService _credentialsService;
         private readonly ISettingsService _settings;
         private readonly MainViewModel _mainViewModel;
-        private readonly IBackgroundTaskService _taskService;
         private readonly ILogger<RdpLaunchViewModel> _logger;
 
-        private ManagedTask? _managedTask;
+        private CancellationTokenSource _cts = new();
 
         [ObservableProperty] private string _statusText = "Initialising...";
         [ObservableProperty] private bool _isBusy = true;
@@ -38,16 +36,10 @@ namespace ThreeLCS.ViewModels
         [ObservableProperty]
         private RDPConnectionDetails? _selectedConnection;
 
-        private CloudHostedInstance? _instance;
         private EnvironmentViewModel? _env;
         private Window? _window;
 
-        // Polling intervals
-        private const int TextRefreshSeconds = 1;
-        private const int LivenessCheckSeconds = 3;
         private const int TimeoutMinutes = 12;
-        // LCS takes time to reflect the new state after a start request.
-        // Don't check for abort conditions until the first poll has had a chance to run.
         private const int StartGracePeriodSeconds = 65;
 
         public RdpLaunchViewModel(
@@ -55,41 +47,37 @@ namespace ThreeLCS.ViewModels
             ILcsCredentialsService credentialsService,
             ISettingsService settings,
             MainViewModel mainViewModel,
-            IBackgroundTaskService taskService,
             ILogger<RdpLaunchViewModel> logger)
         {
             _envService = envService;
             _credentialsService = credentialsService;
             _settings = settings;
             _mainViewModel = mainViewModel;
-            _taskService = taskService;
             _logger = logger;
         }
 
         public void Initialise(EnvironmentViewModel env, Window window)
         {
             _env = env;
-            _instance = env.Instance;
             _window = window;
-            _managedTask = _taskService.Run(
-                $"RDP Connect: {env.Instance.DisplayName}",
-                RunAsync);
+            _cts = new CancellationTokenSource();
+            _ = RunAsync(_cts.Token);
         }
 
         private async Task RunAsync(CancellationToken ct)
         {
             try
             {
-                var instance = _instance!;
+                var instance = _env!.Instance;
 
-                // ── Step 1: Start if stopped / unreachable ─────────────────────────
+                // Step 1: Ensure the machine is running
                 bool isStopped = instance.DeploymentState == DeploymentState.Stopped;
-                bool isUnreachable = _env!.Liveness == LivenessStatus.Unreachable;
-                bool isAlreadyStarting = instance.DeploymentState == DeploymentState.Starting;
+                bool isUnreachable = _env.Liveness == LivenessStatus.Unreachable;
+                bool isStarting = IsTransitional(instance.DeploymentState);
 
-                if (isStopped || isUnreachable || isAlreadyStarting)
+                if (isStopped || isUnreachable || isStarting)
                 {
-                    // Refresh from LCS first to confirm the state before acting
+                    // Refresh LCS state first to confirm before acting
                     if (isStopped || isUnreachable)
                     {
                         StatusText = $"Refreshing state of '{instance.DisplayName}'...";
@@ -97,87 +85,65 @@ namespace ThreeLCS.ViewModels
                         var fresh = freshList.FirstOrDefault(x => x.EnvironmentId == instance.EnvironmentId);
                         if (fresh != null)
                         {
-                            instance = fresh;
                             await Application.Current.Dispatcher.InvokeAsync(() => _env!.Instance = fresh);
+                            instance = fresh;
                             isStopped = fresh.DeploymentState == DeploymentState.Stopped;
-                            isAlreadyStarting = fresh.DeploymentState == DeploymentState.Starting;
-                            // If refresh shows it's active, skip the start-and-wait flow entirely
-                            if (!isStopped && !isAlreadyStarting)
+                            isStarting = IsTransitional(fresh.DeploymentState);
+                            if (fresh.DeploymentState == DeploymentState.Active)
                                 goto connectDirectly;
                         }
                     }
 
-                    if (!isAlreadyStarting)
+                    if (isStopped)
                     {
-                        StatusText = $"Sending start request for '{instance.DisplayName}'...";
-                        bool ok = await _envService.StartStopDeploymentAsync(instance, "start");
-                        if (!ok)
+                        // Register a named background task — identical to the MainWindow Start button
+                        StatusText = $"Requesting start of '{instance.DisplayName}'...";
+                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.StartCheEnv(_env!));
+                    }
+                    else
+                    {
+                        // Already in a transitional state — ensure deployment polling is active
+                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.ForceDeploymentPolling());
+                    }
+
+                    // Wait for EnvironmentViewModel.Instance.DeploymentState to reach Active.
+                    // The state is updated every 30 s by MainViewModel's shared polling loop.
+                    var sw = Stopwatch.StartNew();
+                    var maxWait = TimeSpan.FromMinutes(TimeoutMinutes);
+
+                    while (sw.Elapsed < maxWait)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        await Task.Delay(1000, ct);
+
+                        var state = _env!.Instance.DeploymentState;
+                        var elapsed = sw.Elapsed;
+                        StatusText = $"Waiting for '{instance.DisplayName}'... {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s  |  LCS: {state}";
+
+                        if (state == DeploymentState.Active)
                         {
-                            StatusText = "LCS rejected the start request.";
+                            instance = _env.Instance;
+                            break;
+                        }
+
+                        // After the grace period, abort if the state is settled and not Active
+                        if (elapsed.TotalSeconds > StartGracePeriodSeconds && !IsTransitional(state))
+                        {
+                            StatusText = $"Start failed — environment entered '{state}' state.";
                             IsBusy = false;
                             return;
                         }
                     }
 
-                    // Always kick off deployment polling so MainWindow and the status text
-                    // below both reflect state changes — even if the machine was already starting.
-                    await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.ForceDeploymentPolling());
-
-                    // ── Wait loop: 1 s text refresh, 3 s TCP probe ─────────────────
-                    // DeploymentState updates flow via MainViewModel.PollTransitionalStatesAsync
-                    // (every 30 s) which writes to the same _env.Instance object.
-                    var host = GetHost(instance);
-                    bool becameReachable = false;
-                    var sw = Stopwatch.StartNew();
-                    var maxWait = TimeSpan.FromMinutes(TimeoutMinutes);
-                    int secondsSinceLiveness = 0;
-
-                    while (sw.Elapsed < maxWait && !ct.IsCancellationRequested)
+                    if (sw.Elapsed >= maxWait)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(TextRefreshSeconds), ct);
-                        secondsSinceLiveness++;
-
-                        var elapsed = sw.Elapsed;
-                        var currentState = _env!.Instance.DeploymentState;
-                        StatusText = $"Waiting for '{instance.DisplayName}' to start… {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s  |  LCS: {currentState}";
-
-                        // Abort if MainViewModel's poller reports the environment went back to Stopped.
-                        // Only check after the grace period so LCS has time to reflect the new state.
-                        if (sw.Elapsed.TotalSeconds > StartGracePeriodSeconds)
-                        {
-                            if (currentState == DeploymentState.Stopped || currentState == DeploymentState.Undefined)
-                            {
-                                StatusText = $"Start failed — machine returned to '{currentState}' state.";
-                                IsBusy = false;
-                                return;
-                            }
-                        }
-
-                        // TCP liveness check every 3 seconds
-                        if (host != null && secondsSinceLiveness >= LivenessCheckSeconds)
-                        {
-                            secondsSinceLiveness = 0;
-                            if (await IsReachableAsync(host, ct))
-                            {
-                                becameReachable = true;
-                                // Pick up the latest instance data written by MainViewModel's poller
-                                instance = _env!.Instance;
-                                break;
-                            }
-                        }
-                    }
-
-                    ct.ThrowIfCancellationRequested();
-
-                    if (!becameReachable)
-                    {
-                        StatusText = $"Machine did not respond within {TimeoutMinutes} minutes.";
+                        StatusText = $"Timed out after {TimeoutMinutes} minutes waiting for the environment to start.";
                         IsBusy = false;
                         return;
                     }
                 }
 
-                // ── Step 2: Fetch credentials ──────────────────────────────────────
+                // Step 2: Fetch credentials
                 connectDirectly:
                 StatusText = "Fetching credentials...";
                 var rdpList = await Task.Run(() => _credentialsService.GetRdpConnectionDetails(instance), ct);
@@ -189,7 +155,7 @@ namespace ThreeLCS.ViewModels
                     return;
                 }
 
-                // ── Step 3: Choose user ────────────────────────────────────────────
+                // Step 3: Choose user
                 RDPConnectionDetails? selected = null;
 
                 if (_settings.AlwaysLogAsAdmin)
@@ -226,7 +192,7 @@ namespace ThreeLCS.ViewModels
                     }
                 }
 
-                // ── Step 4: Launch mstsc ───────────────────────────────────────────
+                // Step 4: Launch mstsc
                 StatusText = $"Connecting as {selected.Username}...";
 
                 await Task.Run(() =>
@@ -243,7 +209,7 @@ namespace ThreeLCS.ViewModels
                     mstsc.Start();
                 }, ct);
 
-                // ── Step 5: Countdown and close ────────────────────────────────────
+                // Step 5: Countdown and close
                 IsBusy = false;
                 IsCancelVisible = false;
                 IsCountdownVisible = true;
@@ -270,40 +236,18 @@ namespace ThreeLCS.ViewModels
         }
 
         [RelayCommand]
-        private void Confirm()
-        {
-            IsUserPickerVisible = false;
-        }
+        private void Confirm() => IsUserPickerVisible = false;
 
         [RelayCommand]
         private void Cancel()
         {
-            _managedTask?.Cancel();
+            _cts.Cancel();
             Application.Current.Dispatcher.Invoke(() => _window?.Close());
         }
 
-        private static async Task<bool> IsReachableAsync(string host, CancellationToken outerCt)
-        {
-            foreach (var port in new[] { 443, 80 })
-            {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(outerCt);
-                cts.CancelAfter(2500);
-                try
-                {
-                    using var tcp = new TcpClient();
-                    await tcp.ConnectAsync(host, port, cts.Token);
-                    return true;
-                }
-                catch { }
-            }
-            return false;
-        }
-
-        private static string? GetHost(CloudHostedInstance instance)
-        {
-            var link = instance.NavigationLinks?.FirstOrDefault(l => l.DisplayName == "Log on to environment");
-            if (link?.NavigationUri == null) return null;
-            return Uri.TryCreate(link.NavigationUri, UriKind.Absolute, out var uri) ? uri.Host : null;
-        }
+        private static bool IsTransitional(DeploymentState state) =>
+            state is DeploymentState.Starting or DeploymentState.Stopping
+                  or DeploymentState.Servicing or DeploymentState.Recovering
+                  or DeploymentState.Restoring or DeploymentState.Deallocating;
     }
 }

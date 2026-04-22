@@ -590,6 +590,21 @@ namespace ThreeLCS.ViewModels
         }
 
         /// <summary>
+        /// Sends a start request for the given CHE and starts the shared deployment polling loop,
+        /// identical to what the MainWindow Start button does. The start call is registered as a
+        /// named background task so it appears in the task list.
+        /// </summary>
+        public void StartCheEnv(EnvironmentViewModel env)
+        {
+            _taskService.Run($"Start: {env.Instance.DisplayName}", async ct =>
+            {
+                bool ok = await _envService.StartStopDeploymentAsync(env.Instance, "start");
+                if (!ok) throw new InvalidOperationException("LCS rejected the start request.");
+            });
+            ForceDeploymentPolling();
+        }
+
+        /// <summary>
         /// Called externally (e.g. from RdpLaunchViewModel) after a start/stop request is
         /// sent so that MainWindow reflects state changes via the same 30-second poll loop.
         /// </summary>
