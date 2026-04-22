@@ -204,14 +204,6 @@
             </TabItem>
         </TabControl>
 
-        <!-- Busy overlay -->
-        <Grid Grid.Row="1" Background="#88000000" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <ProgressBar IsIndeterminate="True" Width="200" Height="20"/>
-                <TextBlock Text="Loading..." Foreground="White" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-            </StackPanel>
-        </Grid>
-
         <!-- API Monitor panel (collapsible) -->
         <Border Grid.Row="2" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0"
                 Background="#F9F9F9"
@@ -240,7 +232,38 @@
         <!-- Status bar -->
         <StatusBar Grid.Row="3">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Circular spinner: visible only when busy -->
+                    <Grid Width="14" Height="14" Margin="0,0,6,0"
+                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                        <Ellipse Stroke="#E0E0E0" StrokeThickness="2" Fill="Transparent"/>
+                        <Ellipse Stroke="#0078D4" StrokeThickness="2" Fill="Transparent"
+                                 StrokeDashArray="11 33"
+                                 RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <RotateTransform Angle="0"/>
+                            </Ellipse.RenderTransform>
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsVisible" Value="True">
+                                            <Trigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation
+                                                            Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                            From="0" To="360" Duration="0:0:0.9"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.EnterActions>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                    </Grid>
+                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
+                </StackPanel>
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
