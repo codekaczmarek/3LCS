@@ -1,10 +1,11 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -38,6 +39,12 @@ namespace ThreeLCS.ViewModels
         private CloudHostedInstance? _instance;
         private EnvironmentRow? _row;
         private Window? _window;
+
+        // Polling intervals
+        private const int TextRefreshSeconds = 1;
+        private const int LivenessCheckSeconds = 3;
+        private const int LcsStateCheckSeconds = 60;
+        private const int TimeoutMinutes = 12;
 
         public RdpLaunchViewModel(
             ILcsEnvironmentService envService,
@@ -85,39 +92,69 @@ namespace ThreeLCS.ViewModels
                         }
                     }
 
-                    // ── Poll until Active (max 24 × 30 s = 12 min) ────────────────
-                    bool becameActive = false;
-                    for (int i = 0; i < 24 && !ct.IsCancellationRequested; i++)
-                    {
-                        StatusText = $"Waiting for '{instance.DisplayName}' to start... ({i * 30}s elapsed)";
-                        await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                    // ── Wait loop: 1 s text refresh, 3 s TCP probe, 60 s LCS state ─
+                    var host = GetHost(instance);
+                    bool becameReachable = false;
+                    var sw = Stopwatch.StartNew();
+                    var maxWait = TimeSpan.FromMinutes(TimeoutMinutes);
+                    int secondsSinceLiveness = 0;
+                    int secondsSinceLcs = 0;
 
-                        var action = await _envService.GetOngoingActionDetailsAsync(instance);
-                        if (action != null && IsActionInProgress(action.Status))
+                    while (sw.Elapsed < maxWait && !ct.IsCancellationRequested)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(TextRefreshSeconds), ct);
+                        secondsSinceLiveness++;
+                        secondsSinceLcs++;
+
+                        var elapsed = sw.Elapsed;
+                        StatusText = $"Waiting for '{instance.DisplayName}' to start… {(int)elapsed.TotalMinutes}m {elapsed.Seconds}s";
+
+                        // TCP liveness check every 3 seconds
+                        if (host != null && secondsSinceLiveness >= LivenessCheckSeconds)
                         {
-                            StatusText = $"Starting '{instance.DisplayName}'… {action.ActionStatusText ?? action.Status.ToString()} ({(i + 1) * 30}s)";
-                            continue;
+                            secondsSinceLiveness = 0;
+                            if (await IsReachableAsync(host, ct))
+                            {
+                                becameReachable = true;
+                                // Refresh LCS state to get fresh instance data
+                                var freshList = await _envService.GetCheInstancesAsync();
+                                var fresh = freshList.FirstOrDefault(x => x.EnvironmentId == instance.EnvironmentId);
+                                if (fresh != null)
+                                {
+                                    instance = fresh;
+                                    await Application.Current.Dispatcher.InvokeAsync(() => _row.Instance = fresh);
+                                }
+                                break;
+                            }
                         }
 
-                        var freshList = await _envService.GetCheInstancesAsync();
-                        var fresh = freshList.FirstOrDefault(x => x.EnvironmentId == instance.EnvironmentId);
-                        if (fresh != null)
+                        // LCS state check every 60 seconds (failure detection)
+                        if (secondsSinceLcs >= LcsStateCheckSeconds)
                         {
-                            instance = fresh;
-                            await Application.Current.Dispatcher.InvokeAsync(() => _row.Instance = fresh);
-                            if (fresh.DeploymentState == DeploymentState.Active)
+                            secondsSinceLcs = 0;
+                            var freshList = await _envService.GetCheInstancesAsync();
+                            var fresh = freshList.FirstOrDefault(x => x.EnvironmentId == instance.EnvironmentId);
+                            if (fresh != null)
                             {
-                                becameActive = true;
-                                break;
+                                instance = fresh;
+                                await Application.Current.Dispatcher.InvokeAsync(() => _row.Instance = fresh);
+                                // If it went back to Stopped or hit a terminal failure state — abort
+                                if (fresh.DeploymentState == DeploymentState.Stopped
+                                    || fresh.DeploymentState == DeploymentState.Undefined)
+                                {
+                                    StatusText = $"Start failed — machine returned to '{fresh.DeploymentState}' state.";
+                                    IsBusy = false;
+                                    return;
+                                }
                             }
                         }
                     }
 
                     ct.ThrowIfCancellationRequested();
 
-                    if (!becameActive)
+                    if (!becameReachable)
                     {
-                        StatusText = "Machine did not become active within 12 minutes.";
+                        StatusText = $"Machine did not respond within {TimeoutMinutes} minutes.";
                         IsBusy = false;
                         return;
                     }
@@ -141,10 +178,7 @@ namespace ThreeLCS.ViewModels
                 {
                     selected = rdpList.Find(r => r.Username?.StartsWith("Admin", StringComparison.OrdinalIgnoreCase) == true);
                     if (selected == null)
-                    {
-                        // No admin account — fall through to picker
                         StatusText = "No admin account found — please select an account:";
-                    }
                 }
 
                 if (selected == null)
@@ -155,7 +189,6 @@ namespace ThreeLCS.ViewModels
                     }
                     else
                     {
-                        // Show the picker inside the window
                         await Application.Current.Dispatcher.InvokeAsync(() =>
                         {
                             foreach (var r in rdpList) RdpList.Add(r);
@@ -165,7 +198,6 @@ namespace ThreeLCS.ViewModels
                             IsBusy = false;
                         });
 
-                        // Wait for the user to confirm
                         while (IsUserPickerVisible && !ct.IsCancellationRequested)
                             await Task.Delay(200, ct);
 
@@ -222,7 +254,6 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private void Confirm()
         {
-            // User clicked OK in the picker — hide picker to unblock RunAsync
             IsUserPickerVisible = false;
         }
 
@@ -233,9 +264,28 @@ namespace ThreeLCS.ViewModels
             Application.Current.Dispatcher.Invoke(() => _window?.Close());
         }
 
-        private static bool IsActionInProgress(LcsEnvironmentActionStatus s) =>
-            s is LcsEnvironmentActionStatus.InProgress
-              or LcsEnvironmentActionStatus.InProgressManually
-              or LcsEnvironmentActionStatus.PreparingEnvironment;
+        private static async Task<bool> IsReachableAsync(string host, CancellationToken outerCt)
+        {
+            foreach (var port in new[] { 443, 80 })
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(outerCt);
+                cts.CancelAfter(2500);
+                try
+                {
+                    using var tcp = new TcpClient();
+                    await tcp.ConnectAsync(host, port, cts.Token);
+                    return true;
+                }
+                catch { }
+            }
+            return false;
+        }
+
+        private static string? GetHost(CloudHostedInstance instance)
+        {
+            var link = instance.NavigationLinks?.FirstOrDefault(l => l.DisplayName == "Log on to environment");
+            if (link?.NavigationUri == null) return null;
+            return Uri.TryCreate(link.NavigationUri, UriKind.Absolute, out var uri) ? uri.Host : null;
+        }
     }
 }
