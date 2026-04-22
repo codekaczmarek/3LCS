@@ -7,13 +7,137 @@
         xmlns:conv="clr-namespace:ThreeLCS.Views.Converters"
         mc:Ignorable="d"
         Title="{Binding WindowTitle}" Height="600" Width="1000"
-        Icon="../Assets/favicon-white.ico">
+        Icon="../Assets/favicon-white.ico"
+        Background="{StaticResource BackgroundBrush}">
     <Window.InputBindings>
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
     </Window.InputBindings>
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
         <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
+
+        <!-- ── Palette ──────────────────────────────────────────────────── -->
+        <SolidColorBrush x:Key="AccentBrush"        Color="#0078D4"/>
+        <SolidColorBrush x:Key="AccentHoverBrush"   Color="#106EBE"/>
+        <SolidColorBrush x:Key="AccentLightBrush"   Color="#EBF3FB"/>
+        <SolidColorBrush x:Key="SurfaceBrush"       Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="BackgroundBrush"    Color="#F5F5F5"/>
+        <SolidColorBrush x:Key="BorderColorBrush"   Color="#E1E1E1"/>
+        <SolidColorBrush x:Key="HeaderBrush"        Color="#F0F0F0"/>
+        <SolidColorBrush x:Key="AltRowBrush"        Color="#FAFAFA"/>
+        <SolidColorBrush x:Key="SubtleTextBrush"    Color="#767676"/>
+        <SolidColorBrush x:Key="BodyTextBrush"      Color="#1B1B1B"/>
+
+        <!-- ── DataGrid ──────────────────────────────────────────────────── -->
+        <Style TargetType="DataGrid">
+            <Setter Property="Background"                Value="{StaticResource SurfaceBrush}"/>
+            <Setter Property="RowBackground"             Value="{StaticResource SurfaceBrush}"/>
+            <Setter Property="AlternatingRowBackground"  Value="{StaticResource AltRowBrush}"/>
+            <Setter Property="BorderBrush"               Value="{StaticResource BorderColorBrush}"/>
+            <Setter Property="BorderThickness"           Value="1"/>
+            <Setter Property="GridLinesVisibility"       Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush"  Value="#EFEFEF"/>
+            <Setter Property="VerticalGridLinesBrush"    Value="Transparent"/>
+            <Setter Property="HeadersVisibility"         Value="Column"/>
+            <Setter Property="FontSize"                  Value="12"/>
+            <Setter Property="Foreground"                Value="{StaticResource BodyTextBrush}"/>
+            <Setter Property="RowHeaderWidth"            Value="0"/>
+            <Setter Property="SelectionUnit"             Value="FullRow"/>
+            <Setter Property="CanUserAddRows"            Value="False"/>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background"      Value="{StaticResource HeaderBrush}"/>
+            <Setter Property="Foreground"      Value="#444444"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Padding"         Value="8,6"/>
+            <Setter Property="Height"          Value="30"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource BorderColorBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="SeparatorVisibility" Value="Collapsed"/>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="MinHeight"  Value="26"/>
+            <Setter Property="Foreground" Value="{StaticResource BodyTextBrush}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EEF5FC"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentLightBrush}"/>
+                    <Setter Property="Foreground" Value="{StaticResource BodyTextBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness"  Value="0"/>
+            <Setter Property="Padding"          Value="8,3"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background"   Value="Transparent"/>
+                    <Setter Property="BorderBrush"  Value="Transparent"/>
+                    <Setter Property="Foreground"   Value="{StaticResource BodyTextBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ── TabControl: accent-underline style ────────────────────────── -->
+        <Style TargetType="TabControl">
+            <Setter Property="Background"      Value="{StaticResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource BorderColorBrush}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Padding"         Value="0"/>
+        </Style>
+
+        <Style TargetType="TabItem">
+            <Setter Property="FontSize"   Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Root" Background="Transparent"
+                                BorderThickness="0,0,0,2"
+                                BorderBrush="Transparent"
+                                Padding="16,8,16,6"
+                                Margin="0,0,2,0">
+                            <ContentPresenter ContentSource="Header"
+                                              TextBlock.FontSize="12"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush"
+                                        Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsSelected"  Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Root" Property="Background" Value="#F0F0F0"/>
+                                <Setter Property="Foreground" Value="{StaticResource BodyTextBrush}"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── StatusBar ─────────────────────────────────────────────────── -->
+        <Style TargetType="StatusBar">
+            <Setter Property="Background"      Value="{StaticResource HeaderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource BorderColorBrush}"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Foreground"      Value="{StaticResource SubtleTextBrush}"/>
+        </Style>
     </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -56,7 +180,7 @@
                               IsReadOnly="True"
                               SelectionMode="Single">
                         <DataGrid.RowStyle>
-                            <Style TargetType="DataGridRow">
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
                             </Style>
                         </DataGrid.RowStyle>
@@ -144,7 +268,7 @@
                           IsReadOnly="True"
                           SelectionMode="Single">
                     <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow">
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                             <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
                         </Style>
                     </DataGrid.RowStyle>
