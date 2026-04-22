@@ -251,31 +251,35 @@ namespace ThreeLCS.ViewModels
                 var che = await _envService.GetCheInstancesAsync();
                 var saas = await _envService.GetSaasInstancesAsync();
 
-                // Snapshot current liveness before discarding old rows
+                // Snapshot current liveness before rebuilding rows (needed for new environments).
                 foreach (var r in CheInstances.Concat(SaasInstances))
                 {
                     var key = r.Instance.EnvironmentId ?? r.Instance.InstanceId;
                     if (key != null) _livenessCache[key] = r.Liveness;
                 }
 
-                // Seed new rows from cache so liveness never flickers back to Unknown
-                var cheRows = che.Select(i =>
-                {
-                    var key = i.EnvironmentId ?? i.InstanceId;
-                    var env = new EnvironmentViewModel(i);
-                    if (key != null && _livenessCache.TryGetValue(key, out var cached))
-                        env.Liveness = cached;
-                    return env;
-                }).ToList();
+                // Reuse existing EnvironmentViewModel objects where possible — updating Instance
+                // in-place preserves live references held by any open RDP windows, so their
+                // PropertyChanged subscriptions keep firing correctly on the same object.
+                var existingChe  = CheInstances .ToDictionary(r => r.Instance.EnvironmentId ?? r.Instance.InstanceId ?? string.Empty);
+                var existingSaas = SaasInstances.ToDictionary(r => r.Instance.EnvironmentId ?? r.Instance.InstanceId ?? string.Empty);
 
-                var saasRows = saas.Select(i =>
+                EnvironmentViewModel ReuseOrCreate(CloudHostedInstance i, Dictionary<string, EnvironmentViewModel> existing)
                 {
-                    var key = i.EnvironmentId ?? i.InstanceId;
-                    var env = new EnvironmentViewModel(i);
-                    if (key != null && _livenessCache.TryGetValue(key, out var cached))
-                        env.Liveness = cached;
-                    return env;
-                }).ToList();
+                    var key = i.EnvironmentId ?? i.InstanceId ?? string.Empty;
+                    if (existing.TryGetValue(key, out var vm))
+                    {
+                        vm.Instance = i;   // update in-place; PropertyChanged fires on the same object
+                        return vm;
+                    }
+                    var fresh = new EnvironmentViewModel(i);
+                    if (key != string.Empty && _livenessCache.TryGetValue(key, out var cached))
+                        fresh.Liveness = cached;
+                    return fresh;
+                }
+
+                var cheRows  = che .Select(i => ReuseOrCreate(i, existingChe )).ToList();
+                var saasRows = saas.Select(i => ReuseOrCreate(i, existingSaas)).ToList();
 
                 CheInstances = new ObservableCollection<EnvironmentViewModel>(cheRows);
                 SaasInstances = new ObservableCollection<EnvironmentViewModel>(saasRows);
