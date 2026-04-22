@@ -21,12 +21,12 @@ namespace ThreeLCS.Services.Implementations
             _dialog = dialog;
         }
 
-        public Task ConnectAsync(CloudHostedInstance instance, List<RDPConnectionDetails> rdpList)
+        public async Task ConnectAsync(CloudHostedInstance instance, List<RDPConnectionDetails> rdpList)
         {
             if (rdpList.Count == 0)
             {
                 _dialog.ShowError("No RDP connections available for this instance.");
-                return Task.CompletedTask;
+                return;
             }
 
             RDPConnectionDetails? selected;
@@ -35,19 +35,24 @@ namespace ThreeLCS.Services.Implementations
             else
                 selected = ChooseUser(rdpList);
 
-            if (selected == null) return Task.CompletedTask;
+            if (selected == null) return;
 
-            using var creds = new RdpCredentials(selected.Address!, selected.Username!, selected.Password!);
-            var mstsc = new Process
+            // Launch on a background thread so the UI is not blocked while
+            // cmdkey and mstsc processes are being created. No WaitForExit —
+            // the user can start additional sessions immediately.
+            await Task.Run(() =>
             {
-                StartInfo = new ProcessStartInfo
+                using var creds = new RdpCredentials(selected.Address!, selected.Username!, selected.Password!);
+                var mstsc = new Process
                 {
-                    FileName = Environment.ExpandEnvironmentVariables(@"%SystemRoot%\system32\mstsc.exe"),
-                    Arguments = $"/v:{selected.Address}:{selected.Port}"
-                }
-            };
-            mstsc.Start();
-            return Task.CompletedTask;
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = Environment.ExpandEnvironmentVariables(@"%SystemRoot%\system32\mstsc.exe"),
+                        Arguments = $"/v:{selected.Address}:{selected.Port}"
+                    }
+                };
+                mstsc.Start();
+            });
         }
 
         public RDPConnectionDetails? ChooseUser(List<RDPConnectionDetails> rdpList)
