@@ -138,6 +138,134 @@
             <Setter Property="FontSize"        Value="11"/>
             <Setter Property="Foreground"      Value="{StaticResource SubtleTextBrush}"/>
         </Style>
+
+        <!-- ── Menu bar ──────────────────────────────────────────────────── -->
+        <Style TargetType="Menu">
+            <Setter Property="Background"       Value="#F5F5F5"/>
+            <Setter Property="BorderThickness"  Value="0,0,0,1"/>
+            <Setter Property="BorderBrush"      Value="{StaticResource BorderColorBrush}"/>
+            <Setter Property="FontSize"         Value="12"/>
+            <Setter Property="Foreground"       Value="{StaticResource BodyTextBrush}"/>
+            <Setter Property="Padding"          Value="4,2"/>
+        </Style>
+
+        <!-- Top-level menu items -->
+        <Style TargetType="MenuItem">
+            <Setter Property="Foreground"  Value="{StaticResource BodyTextBrush}"/>
+            <Setter Property="FontSize"    Value="12"/>
+            <Setter Property="Background"  Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Padding"     Value="10,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="MenuItemIconCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="MenuItemIGTCol"/>
+                                    <ColumnDefinition Width="14"/>
+                                </Grid.ColumnDefinitions>
+
+                                <ContentPresenter x:Name="Icon" Grid.Column="0"
+                                                  ContentSource="Icon" Margin="0,0,8,0"
+                                                  VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                  Width="16" Height="16" SnapsToDevicePixels="True"/>
+
+                                <ContentPresenter x:Name="Header" Grid.Column="1"
+                                                  ContentSource="Header"
+                                                  RecognizesAccessKey="True"
+                                                  VerticalAlignment="Center"/>
+
+                                <TextBlock x:Name="IGT" Grid.Column="2"
+                                           Text="{TemplateBinding InputGestureText}"
+                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Margin="12,0,0,0"
+                                           VerticalAlignment="Center"/>
+
+                                <!-- Arrow for sub-menus -->
+                                <Path x:Name="Arrow" Grid.Column="3"
+                                      Data="M0,0 L4,4 L0,8"
+                                      Stroke="{StaticResource SubtleTextBrush}"
+                                      StrokeThickness="1.5"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Visibility="Collapsed"/>
+
+                                <!-- Popup for sub-menus -->
+                                <Popup x:Name="PART_Popup" Grid.Column="0"
+                                       AllowsTransparency="True"
+                                       IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                       Placement="Bottom"
+                                       PopupAnimation="Fade">
+                                    <Border Background="White"
+                                            BorderBrush="{StaticResource BorderColorBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="4"
+                                            Effect="{DynamicResource {x:Static SystemParameters.DropShadowKey}}">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                    Grid.IsSharedSizeScope="True"/>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- Top-level hover -->
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E8E8E8"/>
+                            </Trigger>
+                            <!-- Top-level open -->
+                            <Trigger Property="IsSubmenuOpen" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E0E0E0"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#D0D0D0"/>
+                            </Trigger>
+                            <!-- Show arrow when has items -->
+                            <Trigger Property="Role" Value="SubmenuHeader">
+                                <Setter TargetName="Arrow" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="Bd"    Property="Padding" Value="12,6"/>
+                            </Trigger>
+                            <!-- Submenu item style -->
+                            <Trigger Property="Role" Value="SubmenuItem">
+                                <Setter TargetName="Bd"     Property="Padding"      Value="12,7"/>
+                                <Setter TargetName="Arrow"  Property="Visibility"   Value="Collapsed"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsHighlighted" Value="True"/>
+                                    <Condition Property="Role" Value="SubmenuItem"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background"   Value="{StaticResource AccentLightBrush}"/>
+                                <Setter TargetName="Bd" Property="CornerRadius" Value="3"/>
+                            </MultiTrigger>
+                            <!-- Disabled -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Separator">
+            <Setter Property="Height"      Value="1"/>
+            <Setter Property="Margin"      Value="8,3"/>
+            <Setter Property="Background"  Value="{StaticResource BorderColorBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Rectangle Height="1" Fill="{TemplateBinding Background}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
