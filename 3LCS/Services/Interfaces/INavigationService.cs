@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Net;
 using System.Threading.Tasks;
 using ThreeLCS.Models;
 using ThreeLCS.ViewModels;
@@ -10,6 +11,12 @@ namespace ThreeLCS.Services.Interfaces
         void ShowMainWindow();
         void ShowLoginWindow();
         Task<bool> ShowLoginWindowAsync();
+
+        /// <summary>
+        /// Performs headless WebView2-based SSO authentication without showing any UI.
+        /// Returns a <see cref="CookieContainer"/> with fresh cookies if SSO succeeded, or null if it failed/timed out.
+        /// </summary>
+        Task<CookieContainer?> TryHeadlessSsoAsync();
         void ShowAbout();
         Task<LcsProject?> ShowChooseProjectAsync();
         Task<bool> ShowAddNsgRuleAsync(CloudHostedInstance instance);

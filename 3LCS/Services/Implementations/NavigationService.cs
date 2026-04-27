@@ -1,5 +1,8 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Web.WebView2.Wpf;
 using System;
+using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using ThreeLCS.Models;
@@ -153,6 +156,84 @@ namespace ThreeLCS.Services.Implementations
 
         public Task ShowCookieEditAsync() => Task.Run(() =>
             Application.Current.Dispatcher.Invoke(() => Resolve<CookieEditWindow>().ShowDialog()));
+
+        public Task<CookieContainer?> TryHeadlessSsoAsync()
+        {
+            _logger.LogDebug("Attempting headless WebView2 SSO");
+            var http = Resolve<ILcsHttpClientService>();
+            var lcsUrl = http.LcsUrl;
+
+            var tcs = new TaskCompletionSource<CookieContainer?>();
+
+            Application.Current.Dispatcher.BeginInvoke(new Func<Task>(async () =>
+            {
+                Window? window = null;
+                WebView2? webView = null;
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                cts.Token.Register(() => tcs.TrySetResult(null));
+                try
+                {
+                    webView = new WebView2();
+                    window = new Window
+                    {
+                        Width = 0,
+                        Height = 0,
+                        WindowStyle = WindowStyle.None,
+                        ShowInTaskbar = false,
+                        ShowActivated = false,
+                        Opacity = 0,
+                        Content = webView
+                    };
+                    window.Show();
+
+                    await webView.EnsureCoreWebView2Async();
+
+                    webView.CoreWebView2.NavigationCompleted += async (_, e) =>
+                    {
+                        var url = webView.Source?.ToString() ?? "";
+                        if (e.IsSuccess && url.StartsWith($"{lcsUrl}/v2", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                var wv2Cookies = await webView.CoreWebView2.CookieManager.GetCookiesAsync(lcsUrl);
+                                var container = new CookieContainer();
+                                var uri = new Uri(lcsUrl);
+                                foreach (var c in wv2Cookies)
+                                {
+                                    try { container.Add(uri, new Cookie(c.Name, c.Value, c.Path)); }
+                                    catch { /* skip malformed cookies */ }
+                                }
+
+                                _logger.LogInformation("Headless SSO succeeded — {Count} cookies extracted", wv2Cookies.Count);
+                                tcs.TrySetResult(container);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to extract cookies from headless WebView2");
+                                tcs.TrySetResult(null);
+                            }
+                        }
+                    };
+
+                    webView.CoreWebView2.Navigate($"{lcsUrl}/Logon/AdLogon");
+
+                    // Wait for SSO or timeout
+                    await tcs.Task;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Headless WebView2 SSO failed");
+                    tcs.TrySetResult(null);
+                }
+                finally
+                {
+                    try { webView?.Dispose(); } catch { }
+                    try { window?.Close(); } catch { }
+                }
+            }));
+
+            return tcs.Task;
+        }
 
         public void CloseAll()
         {

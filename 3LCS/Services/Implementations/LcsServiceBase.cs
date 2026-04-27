@@ -66,7 +66,7 @@ namespace ThreeLCS.Services.Implementations
                 if ((int)response.StatusCode == 498)
                 {
                     response.Dispose();
-                    _logger.LogWarning("GET {Url}: HTTP 498 — attempting silent re-authentication", url);
+                    _logger.LogDebug("GET {Url}: HTTP 498 — attempting silent re-authentication", url);
 
                     if (await _auth.SilentReAuthAsync())
                     {
@@ -79,7 +79,7 @@ namespace ThreeLCS.Services.Implementations
                         sent = true;
                         WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, 498, sw.ElapsedMilliseconds, "Session expired — re-auth failed"));
                         _sessionState.NotifySessionExpired();
-                        throw new HttpRequestException($"GET {url} failed: HTTP 498 and silent re-authentication was unsuccessful.");
+                        return string.Empty;
                     }
                 }
 
@@ -87,8 +87,6 @@ namespace ThreeLCS.Services.Implementations
                 sent = true;
                 _logger.LogDebug("GET {Url} → HTTP {StatusCode}", url, (int)response.StatusCode);
                 WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, (int)response.StatusCode, sw.ElapsedMilliseconds, null));
-                if ((int)response.StatusCode == 498)
-                    _sessionState.NotifySessionExpired();
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadAsStringAsync();
             }
@@ -116,7 +114,7 @@ namespace ThreeLCS.Services.Implementations
                 if ((int)response.StatusCode == 498)
                 {
                     response.Dispose();
-                    _logger.LogWarning("GET {Url}: HTTP 498 — attempting silent re-authentication", url);
+                    _logger.LogDebug("GET {Url}: HTTP 498 — attempting silent re-authentication", url);
 
                     if (_auth.SilentReAuthAsync().GetAwaiter().GetResult())
                     {
@@ -129,7 +127,7 @@ namespace ThreeLCS.Services.Implementations
                         sent = true;
                         WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, 498, sw.ElapsedMilliseconds, "Session expired — re-auth failed"));
                         _sessionState.NotifySessionExpired();
-                        throw new HttpRequestException($"GET {url} failed: HTTP 498 and silent re-authentication was unsuccessful.");
+                        return string.Empty;
                     }
                 }
 
@@ -137,8 +135,6 @@ namespace ThreeLCS.Services.Implementations
                 sent = true;
                 _logger.LogDebug("GET {Url} → HTTP {StatusCode}", url, (int)response.StatusCode);
                 WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, (int)response.StatusCode, sw.ElapsedMilliseconds, null));
-                if ((int)response.StatusCode == 498)
-                    _sessionState.NotifySessionExpired();
                 response.EnsureSuccessStatusCode();
                 return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             }
@@ -188,7 +184,7 @@ namespace ThreeLCS.Services.Implementations
                 if ((int)response.StatusCode == 498)
                 {
                     response.Dispose();
-                    _logger.LogWarning("POST {Url}: HTTP 498 — attempting silent re-authentication", url);
+                    _logger.LogDebug("POST {Url}: HTTP 498 — attempting silent re-authentication", url);
 
                     if (await _auth.SilentReAuthAsync())
                     {
@@ -205,7 +201,7 @@ namespace ThreeLCS.Services.Implementations
                         sent = true;
                         WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, 498, sw.ElapsedMilliseconds, "Session expired — re-auth failed"));
                         _sessionState.NotifySessionExpired();
-                        throw new HttpRequestException($"POST {url} failed: HTTP 498 and silent re-authentication was unsuccessful.");
+                        return string.Empty;
                     }
                 }
 
@@ -213,8 +209,6 @@ namespace ThreeLCS.Services.Implementations
                 sent = true;
                 _logger.LogDebug("POST {Url} → HTTP {StatusCode}", url, (int)response.StatusCode);
                 WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, (int)response.StatusCode, sw.ElapsedMilliseconds, null));
-                if ((int)response.StatusCode == 498)
-                    _sessionState.NotifySessionExpired();
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadAsStringAsync();
             }
@@ -259,7 +253,7 @@ namespace ThreeLCS.Services.Implementations
                 if ((int)response.StatusCode == 498)
                 {
                     response.Dispose();
-                    _logger.LogWarning("POST {Url}: HTTP 498 — attempting silent re-authentication", url);
+                    _logger.LogDebug("POST {Url}: HTTP 498 — attempting silent re-authentication", url);
 
                     if (_auth.SilentReAuthAsync().GetAwaiter().GetResult())
                     {
@@ -276,7 +270,7 @@ namespace ThreeLCS.Services.Implementations
                         sent = true;
                         WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, 498, sw.ElapsedMilliseconds, "Session expired — re-auth failed"));
                         _sessionState.NotifySessionExpired();
-                        throw new HttpRequestException($"POST {url} failed: HTTP 498 and silent re-authentication was unsuccessful.");
+                        return string.Empty;
                     }
                 }
 
@@ -284,8 +278,6 @@ namespace ThreeLCS.Services.Implementations
                 sent = true;
                 _logger.LogDebug("POST {Url} → HTTP {StatusCode}", url, (int)response.StatusCode);
                 WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, (int)response.StatusCode, sw.ElapsedMilliseconds, null));
-                if ((int)response.StatusCode == 498)
-                    _sessionState.NotifySessionExpired();
                 response.EnsureSuccessStatusCode();
                 return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             }

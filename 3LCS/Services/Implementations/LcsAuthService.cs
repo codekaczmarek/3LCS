@@ -1,10 +1,8 @@
 using Microsoft.Extensions.Logging;
 using System;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using ThreeLCS.Infrastructure;
 using ThreeLCS.Services.Interfaces;
 
 namespace ThreeLCS.Services.Implementations
@@ -14,36 +12,20 @@ namespace ThreeLCS.Services.Implementations
         private readonly ILcsHttpClientService _http;
         private readonly ILcsSessionService _sessionState;
         private readonly ISettingsService _settings;
+        private readonly INavigationService _navigation;
         private readonly ILogger<LcsAuthService> _logger;
         private readonly SemaphoreSlim _reAuthLock = new(1, 1);
 
-        public LcsAuthService(ILcsHttpClientService http, ILcsSessionService sessionState, ISettingsService settings, ILogger<LcsAuthService> logger)
+        public LcsAuthService(ILcsHttpClientService http, ILcsSessionService sessionState, ISettingsService settings, INavigationService navigation, ILogger<LcsAuthService> logger)
         {
             _http = http;
             _sessionState = sessionState;
             _settings = settings;
+            _navigation = navigation;
             _logger = logger;
         }
 
         public bool IsLoggedIn => _http.CookieContainer.GetCookies(new Uri(_http.LcsUrl)).Count > 0;
-
-        public CookieContainer? ExtractCookiesFromBrowser()
-        {
-            _logger.LogInformation("Extracting cookies from browser for {Url}", _http.LcsUrl);
-            var cookieSize = 4096 * 16;
-            var cookieData = new StringBuilder(cookieSize);
-            if (!NativeMethods.InternetGetCookieEx(_http.LcsUrl, null!, cookieData, ref cookieSize, 0x2000, IntPtr.Zero) || cookieData.Length == 0)
-            {
-                _logger.LogWarning("Failed to extract cookies from browser — no cookies found");
-                return null;
-            }
-
-            var cookieContainer = new CookieContainer();
-            var cookieString = cookieData.ToString().Replace(';', ',');
-            cookieContainer.SetCookies(new Uri(_http.LcsUrl), cookieString);
-            _logger.LogInformation("Cookies extracted successfully");
-            return cookieContainer;
-        }
 
         public void SetCookies(CookieContainer cookies)
         {
@@ -62,26 +44,26 @@ namespace ThreeLCS.Services.Implementations
             await _reAuthLock.WaitAsync();
             try
             {
-                _logger.LogInformation("Silent re-authentication started");
-                var cookies = ExtractCookiesFromBrowser();
-                if (cookies == null)
+                _logger.LogInformation("Silent re-authentication started via headless WebView2 SSO");
+
+                var ssoCookies = await _navigation.TryHeadlessSsoAsync();
+                if (ssoCookies == null)
                 {
-                    _logger.LogWarning("Silent re-authentication failed — could not extract cookies from browser");
+                    _logger.LogWarning("Silent re-authentication failed — headless SSO did not produce cookies");
                     return false;
                 }
 
-                SetCookies(cookies);
+                SetCookies(ssoCookies);
                 _sessionState.InvalidateToken();
                 var token = await _sessionState.ForceRefreshTokenAsync();
-
-                if (token == null)
+                if (token != null)
                 {
-                    _logger.LogWarning("Silent re-authentication failed — token refresh returned null");
-                    return false;
+                    _logger.LogInformation("Silent re-authentication succeeded");
+                    return true;
                 }
 
-                _logger.LogInformation("Silent re-authentication succeeded");
-                return true;
+                _logger.LogWarning("Silent re-authentication failed — SSO cookies did not yield a valid token");
+                return false;
             }
             finally
             {

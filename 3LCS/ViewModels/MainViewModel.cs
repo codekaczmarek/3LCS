@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -293,17 +292,8 @@ namespace ThreeLCS.ViewModels
             }
             catch (Exception ex)
             {
-                // 498 = session expired; SessionStateChangedMessage triggers AutoReLoginAsync — no dialog needed
-                var is498 = ex is HttpRequestException hre && (int?)hre.StatusCode == 498;
-                if (is498)
-                {
-                    StatusText = "⚠️ Session expired";
-                }
-                else
-                {
-                    StatusText = $"Error: {ex.Message}";
-                    _dialog.ShowError(ex.Message);
-                }
+                StatusText = $"Error: {ex.Message}";
+                _dialog.ShowError(ex.Message);
             }
             finally { IsBusy = false; }
         }

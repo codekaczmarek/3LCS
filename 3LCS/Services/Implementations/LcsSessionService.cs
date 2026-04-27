@@ -168,7 +168,7 @@ namespace ThreeLCS.Services.Implementations
                 catch (Exception ex)
                 {
                     sw.Stop();
-                    _logger.LogError(ex, "Failed to fetch request verification token from {Url}", tokenUrl);
+                    _logger.LogDebug(ex, "Failed to fetch request verification token from {Url}", tokenUrl);
                     WeakReferenceMessenger.Default.Send(new ApiCallCompletedMessage(id, null, sw.ElapsedMilliseconds, ex.Message));
                     return null;
                 }

@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace ThreeLCS.Infrastructure
 {
@@ -18,9 +17,6 @@ namespace ThreeLCS.Infrastructure
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool GetWindowRect(IntPtr hWnd, [Out] out RECT lpRect);
-
-        [DllImport("wininet.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool InternetGetCookieEx(string url, string cookieName, StringBuilder cookieData, ref int size, Int32 dwFlags, IntPtr lpReserved);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
