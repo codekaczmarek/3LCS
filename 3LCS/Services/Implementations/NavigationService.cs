@@ -99,8 +99,8 @@ namespace ThreeLCS.Services.Implementations
             {
                 var w = Resolve<ChoosePackageWindow>();
                 w.Instance = instance;
-                w.ShowDialog();
-                result = w.SelectedPackage;
+                if (w.ShowDialog() == true)
+                    result = w.SelectedPackage;
             });
             return result;
         });

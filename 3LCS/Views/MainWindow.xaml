@@ -101,7 +101,9 @@
                 <Border.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="Logon to Application" Command="{Binding PlacementTarget.Tag.LogonToApplicationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                        <MenuItem Header="Open RDP"             Command="{Binding PlacementTarget.Tag.OpenRdpCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Open RDP"             Command="{Binding PlacementTarget.Tag.OpenRdpCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                            <MenuItem.Icon><Path Data="M 0,8 H 12 V 0 H 0 Z M 4,9 H 8 M 6,9 V 11 M 3,11 H 9" Stroke="#4A9EFF" StrokeThickness="1.2" Fill="Transparent" Stretch="Uniform" Width="12" Height="12"/></MenuItem.Icon>
+                        </MenuItem>
                         <Separator/>
                         <MenuItem Header="Start" Command="{Binding PlacementTarget.Tag.StartEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon><Path Data="M 0,0 L 10,5 L 0,10 Z" Fill="#2EA043" Stretch="Uniform" Width="12" Height="12"/></MenuItem.Icon>
@@ -608,7 +610,9 @@
                         <DataGrid.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Logon to Application" Command="{Binding PlacementTarget.DataContext.LogonToApplicationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <MenuItem Header="Open RDP" Command="{Binding PlacementTarget.DataContext.OpenRdpCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Open RDP" Command="{Binding PlacementTarget.DataContext.OpenRdpCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                    <MenuItem.Icon><Path Data="M 0,8 H 12 V 0 H 0 Z M 4,9 H 8 M 6,9 V 11 M 3,11 H 9" Stroke="#4A9EFF" StrokeThickness="1.2" Fill="Transparent" Stretch="Uniform" Width="12" Height="12"/></MenuItem.Icon>
+                                </MenuItem>
                                 <Separator/>
                                 <MenuItem Header="Start" Command="{Binding PlacementTarget.DataContext.StartEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon><Path Data="M 0,0 L 10,5 L 0,10 Z" Fill="#2EA043" Stretch="Uniform" Width="12" Height="12"/></MenuItem.Icon>

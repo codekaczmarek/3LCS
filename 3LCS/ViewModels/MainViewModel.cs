@@ -514,6 +514,21 @@ namespace ThreeLCS.ViewModels
             if (instance == null) return;
             var package = await _navigation.ShowChoosePackageAsync(instance);
             if (package == null) return;
+
+            var confirmMsg =
+                $"You are about to deploy the following package to environment '{instance.DisplayName}':\n\n" +
+                $"  Package:    {package.Name}\n" +
+                $"  Type:       {package.PackageType}\n" +
+                $"  App ver.:   {package.AppVersion}\n" +
+                $"  Platform:   {package.PlatformVersion}\n\n" +
+                $"This operation may cause downtime and cannot be easily reverted.\n\n" +
+                $"Are you sure you want to continue?";
+            if (!_dialog.ShowConfirm(confirmMsg, "Confirm package deployment"))
+            {
+                _logger.LogDebug("ApplyPackage cancelled by user at confirmation prompt.");
+                return;
+            }
+
             IsBusy = true;
             StatusText = "Applying package...";
             try
