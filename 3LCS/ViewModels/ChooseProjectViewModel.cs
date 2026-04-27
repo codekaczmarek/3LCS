@@ -16,6 +16,7 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsProjectService _projectService;
         private readonly ILcsHttpClientService _http;
         private readonly IDialogService _dialog;
+        private readonly IFavouritesService _favourites;
 
         [ObservableProperty] private ObservableCollection<LcsProject> _projects = new();
         [ObservableProperty] private LcsProject? _selectedProject;
@@ -52,11 +53,12 @@ namespace ThreeLCS.ViewModels
                 || project.Id.ToString().Contains(q);
         }
 
-        public ChooseProjectViewModel(ILcsProjectService projectService, ILcsHttpClientService http, IDialogService dialog)
+        public ChooseProjectViewModel(ILcsProjectService projectService, ILcsHttpClientService http, IDialogService dialog, IFavouritesService favourites)
         {
             _projectService = projectService;
             _http = http;
             _dialog = dialog;
+            _favourites = favourites;
             // Initialise with empty view so binding doesn't fail before load
             FilteredProjects = CollectionViewSource.GetDefaultView(_projects);
         }
@@ -97,6 +99,38 @@ namespace ThreeLCS.ViewModels
         {
             foreach (Window window in Application.Current.Windows)
                 if (window.DataContext == this) { window.DialogResult = false; break; }
+        }
+
+        [RelayCommand]
+        private void AddProjectToFavourites()
+        {
+            if (SelectedProject == null) return;
+            _favourites.AddProjectFavourite(
+                SelectedProject.Id,
+                SelectedProject.Name ?? string.Empty,
+                (int)SelectedProject.ProjectTypeId);
+        }
+
+        [RelayCommand]
+        private void RemoveProjectFromFavourites()
+        {
+            if (SelectedProject == null) return;
+            _favourites.RemoveProjectFavourite(SelectedProject.Id);
+        }
+
+        [RelayCommand]
+        private void SetProjectFriendlyName()
+        {
+            if (SelectedProject == null) return;
+            var current = _favourites.GetProjectFriendlyName(SelectedProject.Id) ?? string.Empty;
+            var result = _dialog.ShowInput(
+                "Friendly name (leave empty to clear):", "Set Friendly Name", current);
+            if (result == null) return;
+            _favourites.SetProjectFriendlyName(
+                SelectedProject.Id,
+                SelectedProject.Name ?? string.Empty,
+                (int)SelectedProject.ProjectTypeId,
+                result);
         }
     }
 }

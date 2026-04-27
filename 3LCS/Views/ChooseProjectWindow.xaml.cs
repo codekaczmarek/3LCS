@@ -25,5 +25,11 @@ namespace ThreeLCS.Views
             if (_vm.SelectedProject != null)
                 _vm.SelectProjectCommand.Execute(null);
         }
+
+        private void DataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is DataGridRow row)
+                row.IsSelected = true;
+        }
     }
 }

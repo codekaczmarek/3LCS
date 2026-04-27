@@ -1,3 +1,5 @@
+using ThreeLCS.Models;
+
 namespace ThreeLCS.Services.Interfaces
 {
     public interface ISettingsService

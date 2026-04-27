@@ -21,5 +21,11 @@ namespace ThreeLCS.Views
             if (sender is DataGridRow row)
                 row.IsSelected = true;
         }
+
+        private void FavouriteTile_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ListBoxItem item)
+                item.IsSelected = true;
+        }
     }
 }

@@ -30,6 +30,7 @@ namespace ThreeLCS
                     // Infrastructure
                     services.AddSingleton<CookieContainer>();
                     services.AddSingleton<ISettingsService, SettingsService>();
+                    services.AddSingleton<IFavouritesService, FavouritesService>();
                     services.AddSingleton<ILcsHttpClientService, LcsHttpClientService>();
                     services.AddSingleton<CredentialsCacheHelper>();
 
@@ -78,6 +79,7 @@ namespace ThreeLCS
                     services.AddTransient<UpcomingUpdatesViewModel>();
                     services.AddTransient<BackgroundTasksViewModel>();
                     services.AddTransient<AssetLibrarySearchViewModel>();
+                    services.AddTransient<AboutViewModel>();
 
                     // Windows
                     services.AddTransient<MainWindow>();

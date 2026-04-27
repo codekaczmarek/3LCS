@@ -18,5 +18,15 @@ namespace ThreeLCS.Services.Interfaces
         string GetDetailedVersionInfoUrl(CloudHostedInstance instance);
         string GetEnvironmentChangeHistoryUrl(CloudHostedInstance instance);
         DeploymentEnvironmentType GetDeploymentEnvironmentTypeInfo(string environmentId);
+
+        /// <summary>
+        /// Fetches CHE instances for each project in <paramref name="projects"/>,
+        /// temporarily switching the HTTP client project context per project.
+        /// Returns a dictionary keyed by project ID; each value is the list of
+        /// (live LCS instance, stored favourite environment) pairs for that project.
+        /// Environments missing from LCS are returned as placeholder instances.
+        /// </summary>
+        Task<Dictionary<int, List<(CloudHostedInstance Instance, FavouriteEnvironment Fav)>>>
+            GetFavouriteCheInstancesAsync(IEnumerable<FavouriteProject> projects);
     }
 }

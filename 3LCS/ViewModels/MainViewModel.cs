@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -32,6 +33,7 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsSessionService _sessionState;
         private readonly ILivenessService _livenessService;
         private readonly IBackgroundTaskService _taskService;
+        private readonly IFavouritesService _favourites;
         private readonly ILogger<MainViewModel> _logger;
         private bool _autoLoginInProgress;
         private ManagedTask? _livenessTask;
@@ -44,8 +46,11 @@ namespace ThreeLCS.ViewModels
 
         [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _cheInstances = new();
         [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _saasInstances = new();
+        [ObservableProperty] private ObservableCollection<FavouriteProjectViewModel> _favouriteGroups = new();
         [ObservableProperty] private EnvironmentViewModel? _selectedCheRow;
         [ObservableProperty] private EnvironmentViewModel? _selectedSaasRow;
+        [ObservableProperty] private EnvironmentViewModel? _selectedFavouriteRow;
+        [ObservableProperty] private int _selectedTabIndex;
         [ObservableProperty] private bool _isBusy;
         [ObservableProperty] private string _statusText = "Not logged in. Use File → Login to LCS.";
         [ObservableProperty] private LcsProject? _selectedProject;
@@ -53,9 +58,11 @@ namespace ThreeLCS.ViewModels
         [ObservableProperty] private bool _isLoggedIn;
         [ObservableProperty] private bool _isMonitorOpen;
 
-        // Computed helpers used by all commands — no command body changes needed
-        private CloudHostedInstance? SelectedCheInstance => SelectedCheRow?.Instance;
+        // Active environment row: favour the selected favourite tile when on the Favourites tab (index 0)
+        private EnvironmentViewModel? ActiveCheRow => SelectedTabIndex == 0 ? SelectedFavouriteRow : SelectedCheRow;
+        private CloudHostedInstance? ActiveCheInstance => ActiveCheRow?.Instance;
         private CloudHostedInstance? SelectedSaasInstance => SelectedSaasRow?.Instance;
+        private CloudHostedInstance? ActiveEnvInstance => ActiveCheInstance ?? SelectedSaasInstance;
 
         public MainViewModel(
             ILcsEnvironmentService envService,
@@ -75,6 +82,7 @@ namespace ThreeLCS.ViewModels
             ILcsSessionService sessionState,
             ILivenessService livenessService,
             IBackgroundTaskService taskService,
+            IFavouritesService favourites,
             ILogger<MainViewModel> logger)
         {
             _envService = envService;
@@ -94,6 +102,7 @@ namespace ThreeLCS.ViewModels
             _sessionState = sessionState;
             _livenessService = livenessService;
             _taskService = taskService;
+            _favourites = favourites;
             TaskService = taskService;
             _logger = logger;
             WeakReferenceMessenger.Default.Register<SessionStateChangedMessage>(this);
@@ -195,12 +204,14 @@ namespace ThreeLCS.ViewModels
             ApplyPackageCommand.NotifyCanExecuteChanged();
             ExportToCsvCommand.NotifyCanExecuteChanged();
             ExportToRdcManCommand.NotifyCanExecuteChanged();
+            OpenFavouriteProjectCommand.NotifyCanExecuteChanged();
+            MarkProjectFavouriteCommand.NotifyCanExecuteChanged();
 
             if (value) StartAutoRefresh();
             else StopAutoRefresh();
         }
 
-        // ── Auth ───────────────────────────────────────────────────────────────
+        #region Auth
 
         [RelayCommand]
         private async Task LoginToLcs()
@@ -232,7 +243,9 @@ namespace ThreeLCS.ViewModels
             SaasInstances.Clear();
         }
 
-        // ── Commands ───────────────────────────────────────────────────────────
+        #endregion
+
+        #region Commands
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task Refresh()
@@ -270,11 +283,17 @@ namespace ThreeLCS.ViewModels
                     if (existing.TryGetValue(key, out var vm))
                     {
                         vm.Instance = i;   // update in-place; PropertyChanged fires on the same object
+                        vm.FriendlyName = key != string.Empty
+                            ? _favourites.GetEnvironmentFriendlyName(SelectedProject?.Id ?? 0, key)
+                            : null;
                         return vm;
                     }
                     var fresh = new EnvironmentViewModel(i);
                     if (key != string.Empty && _livenessCache.TryGetValue(key, out var cached))
                         fresh.Liveness = cached;
+                    fresh.FriendlyName = key != string.Empty
+                        ? _favourites.GetEnvironmentFriendlyName(SelectedProject?.Id ?? 0, key)
+                        : null;
                     return fresh;
                 }
 
@@ -289,6 +308,7 @@ namespace ThreeLCS.ViewModels
                 if (_settings.LivenessCheckEnabled)
                     FireLivenessCheck(allRows);
                 StartOrStopPolling(allRows);
+                await RefreshFavouritesAsync();
             }
             catch (Exception ex)
             {
@@ -321,9 +341,10 @@ namespace ThreeLCS.ViewModels
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private void OpenRdp()
         {
-            var env = SelectedCheRow;
+            var env = ActiveCheRow;
             _logger.LogDebug("OpenRdp clicked. SelectedCheInstance={Instance}", env?.Instance?.DisplayName ?? "<null>");
             if (env == null) return;
+            using var scope = EnvProjectScope(env);
             _ = _navigation.ShowRdpLaunchAsync(env);
         }
 
@@ -333,9 +354,11 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private void LogonToApplication()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveEnvInstance is not null ? ActiveCheRow ?? SelectedSaasRow : null;
+            var instance = ActiveEnvInstance;
             _logger.LogDebug("LogonToApplication clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
+            using var scope = EnvProjectScope(row);
             var link = instance.NavigationLinks?.FirstOrDefault(l => l.DisplayName == "Log on to environment");
             if (link?.NavigationUri != null)
             {
@@ -351,9 +374,11 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private void OpenInstanceDetails()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveCheRow ?? SelectedSaasRow;
+            var instance = ActiveEnvInstance;
             _logger.LogDebug("OpenInstanceDetails clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
+            using var scope = EnvProjectScope(row);
             var url = _envService.GetEnvironmentDetailsUrl(instance);
             _logger.LogDebug("Opening instance details URL: {Url}", url);
             Infrastructure.WebBrowserHelper.OpenUri(url);
@@ -362,41 +387,50 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private void OpenEnvironmentMonitoring()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveCheRow ?? SelectedSaasRow;
+            var instance = ActiveEnvInstance;
             _logger.LogDebug("OpenEnvironmentMonitoring clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
+            using var scope = EnvProjectScope(row);
             Infrastructure.WebBrowserHelper.OpenUri(_envService.GetEnvironmentMonitoringUrl(instance));
         }
 
         [RelayCommand]
         private void OpenDetailedVersionInfo()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveCheRow ?? SelectedSaasRow;
+            var instance = ActiveEnvInstance;
             _logger.LogDebug("OpenDetailedVersionInfo clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
+            using var scope = EnvProjectScope(row);
             Infrastructure.WebBrowserHelper.OpenUri(_envService.GetDetailedVersionInfoUrl(instance));
         }
 
         [RelayCommand]
         private void OpenEnvironmentChangeHistory()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveCheRow ?? SelectedSaasRow;
+            var instance = ActiveEnvInstance;
             _logger.LogDebug("OpenEnvironmentChangeHistory clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
+            using var scope = EnvProjectScope(row);
             Infrastructure.WebBrowserHelper.OpenUri(_envService.GetEnvironmentChangeHistoryUrl(instance));
         }
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task DeleteEnvironment()
         {
-            var instance = SelectedCheInstance;
+            var row = ActiveCheRow;
+            var instance = ActiveCheInstance;
             _logger.LogDebug("DeleteEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
             if (!_dialog.ShowConfirm($"Delete environment {instance.DisplayName}?")) return;
             IsBusy = true;
             try
             {
-                var success = await _envService.DeleteEnvironmentAsync(instance);
+                bool success;
+                using (EnvProjectScope(row))
+                    success = await _envService.DeleteEnvironmentAsync(instance);
                 _dialog.ShowInfo(success ? "Environment deleted." : "Failed to delete environment.");
                 if (success) await Refresh();
             }
@@ -407,11 +441,17 @@ namespace ThreeLCS.ViewModels
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task StartEnvironment()
         {
-            var instance = SelectedCheInstance;
+            var row = ActiveCheRow;
+            var instance = ActiveCheInstance;
             _logger.LogDebug("StartEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
             IsBusy = true;
-            try { await _envService.StartStopDeploymentAsync(instance, "start"); await Refresh(); }
+            try
+            {
+                using (EnvProjectScope(row))
+                    await _envService.StartStopDeploymentAsync(instance, "start");
+                await Refresh();
+            }
             catch (Exception ex) { _dialog.ShowError(ex.Message); }
             finally { IsBusy = false; }
         }
@@ -419,11 +459,17 @@ namespace ThreeLCS.ViewModels
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task StopEnvironment()
         {
-            var instance = SelectedCheInstance;
+            var row = ActiveCheRow;
+            var instance = ActiveCheInstance;
             _logger.LogDebug("StopEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
             IsBusy = true;
-            try { await _envService.StartStopDeploymentAsync(instance, "stop"); await Refresh(); }
+            try
+            {
+                using (EnvProjectScope(row))
+                    await _envService.StartStopDeploymentAsync(instance, "stop");
+                await Refresh();
+            }
             catch (Exception ex) { _dialog.ShowError(ex.Message); }
             finally { IsBusy = false; }
         }
@@ -431,23 +477,28 @@ namespace ThreeLCS.ViewModels
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task AddNsgRule()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveCheRow ?? SelectedSaasRow;
+            var instance = ActiveEnvInstance;
             _logger.LogDebug("AddNsgRule clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
+            using var scope = EnvProjectScope(row);
             await _navigation.ShowAddNsgRuleAsync(instance);
         }
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task DeleteNsgRule()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveCheRow ?? SelectedSaasRow;
+            var instance = ActiveEnvInstance;
             if (instance == null) return;
             var rule = await _navigation.ShowChooseNsgAsync(instance);
             if (rule == null) return;
             IsBusy = true;
             try
             {
-                var result = await _nsgService.DeleteNsgRuleAsync(instance, rule.Name ?? string.Empty);
+                string result;
+                using (EnvProjectScope(row))
+                    result = await _nsgService.DeleteNsgRuleAsync(instance, rule.Name ?? string.Empty);
                 _dialog.ShowInfo(string.IsNullOrEmpty(result) ? "NSG rule deleted." : result);
             }
             catch (Exception ex) { _dialog.ShowError(ex.Message); }
@@ -457,7 +508,8 @@ namespace ThreeLCS.ViewModels
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task ApplyPackage()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveCheRow ?? SelectedSaasRow;
+            var instance = ActiveEnvInstance;
             _logger.LogDebug("ApplyPackage clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
             var package = await _navigation.ShowChoosePackageAsync(instance);
@@ -466,7 +518,9 @@ namespace ThreeLCS.ViewModels
             StatusText = "Applying package...";
             try
             {
-                var log = await Task.Run(() => _packageService.ApplyPackage(instance, package));
+                string? log;
+                using (EnvProjectScope(row))
+                    log = await Task.Run(() => _packageService.ApplyPackage(instance, package));
                 if (!string.IsNullOrEmpty(log))
                     await _navigation.ShowLogDisplayAsync(log);
             }
@@ -504,8 +558,10 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private async Task EnvironmentChanges()
         {
-            var instance = SelectedCheInstance ?? SelectedSaasInstance;
+            var row = ActiveCheRow ?? SelectedSaasRow;
+            var instance = ActiveEnvInstance;
             if (instance == null) return;
+            using var scope = EnvProjectScope(row);
             await _navigation.ShowEnvironmentChangesAsync(instance);
         }
 
@@ -515,9 +571,222 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private async Task Parameters() => await _navigation.ShowParametersAsync();
 
-        // ── Liveness ───────────────────────────────────────────────────────────
+        #endregion
 
-        // ── Auto-refresh ───────────────────────────────────────────────────────
+        #region Favourites
+
+        [RelayCommand(CanExecute = nameof(IsLoggedIn))]
+        private void AddToFavourites()
+        {
+            var row = SelectedCheRow;
+            var instance = row?.Instance;
+            if (instance == null || SelectedProject == null) return;
+            _favourites.AddEnvironment(
+                SelectedProject.Id,
+                SelectedProject.Name ?? string.Empty,
+                (int)SelectedProject.ProjectTypeId,
+                instance.EnvironmentId ?? string.Empty,
+                instance.DisplayName ?? string.Empty);
+            _ = RefreshFavouritesAsync();
+        }
+
+        [RelayCommand]
+        private async Task RemoveFromFavourites()
+        {
+            var row = SelectedFavouriteRow;
+            if (row?.ProjectId == null || row.Instance.EnvironmentId == null) return;
+            _favourites.RemoveEnvironment(row.ProjectId.Value, row.Instance.EnvironmentId);
+            SelectedFavouriteRow = null;
+            await RefreshFavouritesAsync();
+        }
+
+        [RelayCommand(CanExecute = nameof(IsLoggedIn))]
+        private async Task OpenFavouriteProject(FavouriteProjectViewModel? group)
+        {
+            if (group == null) return;
+
+            SelectedProject = new LcsProject
+            {
+                Id = group.ProjectId,
+                Name = group.ProjectName,
+                ProjectTypeId = (ProjectType)group.ProjectTypeId
+            };
+            _http.ChangeLcsProjectId(group.ProjectId.ToString());
+            _http.LcsProjectTypeId = (ProjectType)group.ProjectTypeId;
+            WindowTitle = $"3LCS — {group.ProjectName}";
+            _settings.LastProjectId = group.ProjectId.ToString();
+            _settings.LastProjectName = group.ProjectName;
+            _settings.LastProjectTypeId = group.ProjectTypeId;
+            _settings.Save();
+
+            SelectedTabIndex = 1;
+            await Refresh();
+        }
+
+        [RelayCommand]
+        private async Task MarkProjectFavourite(FavouriteProjectViewModel? group)
+        {
+            if (group == null) return;
+            _favourites.AddProjectFavourite(group.ProjectId, group.ProjectName, group.ProjectTypeId);
+            await RefreshFavouritesAsync();
+        }
+
+        [RelayCommand]
+        private async Task UnmarkProjectFavourite(FavouriteProjectViewModel? group)
+        {
+            if (group == null) return;
+            _favourites.RemoveProjectFavourite(group.ProjectId);
+            await RefreshFavouritesAsync();
+        }
+
+        [RelayCommand]
+        private void SetProjectFriendlyName(FavouriteProjectViewModel? group)
+        {
+            if (group == null) return;
+            var result = _dialog.ShowInput(
+                "Friendly name (leave empty to clear):", "Set Friendly Name", group.FriendlyName ?? string.Empty);
+            if (result == null) return;
+            var alias = string.IsNullOrWhiteSpace(result) ? null : result.Trim();
+            group.FriendlyName = alias;
+            _favourites.SetProjectFriendlyName(group.ProjectId, group.ProjectName, group.ProjectTypeId, alias);
+        }
+
+        [RelayCommand]
+        private async Task SetEnvironmentFriendlyName()
+        {
+            var row = ActiveCheRow;
+            if (row?.Instance.EnvironmentId == null) return;
+
+            var result = _dialog.ShowInput(
+                "Friendly name (leave empty to clear):", "Set Friendly Name", row.FriendlyName ?? string.Empty);
+            if (result == null) return;
+
+            var alias = string.IsNullOrWhiteSpace(result) ? null : result.Trim();
+
+            int projId;
+            string projName;
+            int projTypeId;
+            if (row.ProjectId.HasValue)
+            {
+                projId    = row.ProjectId.Value;
+                projName  = row.ProjectName ?? string.Empty;
+                projTypeId = row.ProjectTypeId ?? 0;
+            }
+            else if (SelectedProject != null)
+            {
+                projId    = SelectedProject.Id;
+                projName  = SelectedProject.Name ?? string.Empty;
+                projTypeId = (int)SelectedProject.ProjectTypeId;
+            }
+            else return;
+
+            var wasFav = _favourites.IsEnvironmentFavourite(projId, row.Instance.EnvironmentId);
+            _favourites.SetEnvironmentFriendlyName(
+                projId, projName, projTypeId,
+                row.Instance.EnvironmentId, row.Instance.DisplayName ?? string.Empty, alias);
+
+            // Update all VMs that display this environment
+            row.FriendlyName = alias;
+            var favVm = FavouriteGroups
+                .SelectMany(g => g.Environments)
+                .FirstOrDefault(e => e.Instance.EnvironmentId == row.Instance.EnvironmentId);
+            if (favVm != null) favVm.FriendlyName = alias;
+
+            // If the env was newly auto-added to favourites, rebuild the accordion
+            if (!wasFav)
+                await RefreshFavouritesAsync();
+        }
+
+        private async Task RefreshFavouritesAsync()
+        {
+            var projects = _favourites.GetAll();
+
+            if (projects.Count == 0)
+            {
+                FavouriteGroups = new ObservableCollection<FavouriteProjectViewModel>();
+                return;
+            }
+
+            try
+            {
+                // Build lookup of existing VMs keyed by (projectId, environmentId) to preserve liveness
+                var existingVms = FavouriteGroups
+                    .SelectMany(g => g.Environments.Select(e => (g.ProjectId, e)))
+                    .ToDictionary(x => (x.ProjectId, x.e.Instance.EnvironmentId ?? string.Empty), x => x.e);
+
+                var instancesByProject = await _envService.GetFavouriteCheInstancesAsync(projects);
+
+                var newGroups = new List<FavouriteProjectViewModel>();
+
+                foreach (var project in projects.OrderBy(p => p.Name))
+                {
+                    var group = new FavouriteProjectViewModel(
+                        projectId: project.Id,
+                        projectName: project.Name,
+                        projectTypeId: project.ProjectTypeId,
+                        isExplicitFavourite: project.Favourite,
+                        isExpanded: project.Expanded,
+                        friendlyName: project.FriendlyName,
+                        onExpandedChanged: expanded => _favourites.SetProjectExpanded(project.Id, expanded));
+
+                    if (instancesByProject.TryGetValue(project.Id, out var pairs))
+                    {
+                        foreach (var (instance, fav) in pairs)
+                        {
+                            var key = (project.Id, instance.EnvironmentId ?? string.Empty);
+                            EnvironmentViewModel vm;
+                            if (existingVms.TryGetValue(key, out var cached))
+                            {
+                                cached.Instance = instance;
+                                vm = cached;
+                            }
+                            else
+                            {
+                                vm = new EnvironmentViewModel(instance);
+                                if (_livenessCache.TryGetValue(instance.EnvironmentId ?? string.Empty, out var liveness))
+                                    vm.Liveness = liveness;
+                            }
+                            vm.ProjectId = project.Id;
+                            vm.ProjectName = project.Name;
+                            vm.ProjectTypeId = project.ProjectTypeId;
+                            vm.FriendlyName = fav.FriendlyName;
+                            group.Environments.Add(vm);
+                        }
+                    }
+
+                    newGroups.Add(group);
+                }
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    FavouriteGroups = new ObservableCollection<FavouriteProjectViewModel>(newGroups);
+                });
+
+                // Trigger liveness checks across all grouped environments
+                var allEnvs = newGroups.SelectMany(g => g.Environments).ToList();
+                if (allEnvs.Count > 0)
+                    FireLivenessCheck(allEnvs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to refresh favourite environments");
+            }
+        }
+
+        /// <summary>
+        /// Returns a disposable that temporarily switches the HTTP client's project context
+        /// to match the project associated with <paramref name="row"/> (when it is a favourite
+        /// from a different project). Returns null if the row has no project override.
+        /// </summary>
+        private IDisposable? EnvProjectScope(EnvironmentViewModel? row)
+        {
+            if (row?.ProjectId is not { } projId || projId == 0) return null;
+            return _http.BeginProjectScope(projId, (ProjectType)(row.ProjectTypeId ?? 0));
+        }
+
+        #endregion
+
+        #region Auto-refresh
 
         private void StartAutoRefresh()
         {
@@ -551,7 +820,9 @@ namespace ThreeLCS.ViewModels
             catch (OperationCanceledException) { }
         }
 
-        // ── Liveness ───────────────────────────────────────────────────────────
+        #endregion
+
+        #region Liveness
 
         private void FireLivenessCheck(IEnumerable<EnvironmentViewModel> rows)
         {
@@ -566,7 +837,9 @@ namespace ThreeLCS.ViewModels
             _livenessTask = null;
         }
 
-        // ── Deployment state polling ───────────────────────────────────────────
+        #endregion
+
+        #region Deployment state polling
 
         private static bool IsTransitionalState(DeploymentState state) =>
             state is DeploymentState.Starting or DeploymentState.Stopping;
@@ -691,5 +964,7 @@ namespace ThreeLCS.ViewModels
                 _logger.LogInformation("Deployment state polling stopped");
             }
         }
+
+        #endregion
     }
 }

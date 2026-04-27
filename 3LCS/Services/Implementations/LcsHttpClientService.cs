@@ -65,6 +65,27 @@ namespace ThreeLCS.Services.Implementations
             CookieContainer.Add(new Uri(LcsUpdateUrl), new Cookie("lcspid", LcsProjectId));
         }
 
+        public IDisposable BeginProjectScope(int projectId, ProjectType projectTypeId)
+        {
+            var savedId = LcsProjectId;
+            var savedType = LcsProjectTypeId;
+            ChangeLcsProjectId(projectId.ToString());
+            LcsProjectTypeId = projectTypeId;
+            return new ProjectScope(() =>
+            {
+                ChangeLcsProjectId(savedId);
+                LcsProjectTypeId = savedType;
+            });
+        }
+
+        private sealed class ProjectScope : IDisposable
+        {
+            private readonly Action _restore;
+            private bool _disposed;
+            internal ProjectScope(Action restore) => _restore = restore;
+            public void Dispose() { if (!_disposed) { _restore(); _disposed = true; } }
+        }
+
         private static string GetTimeZoneOffsetInMinutes() =>
             (-TimeZoneInfo.Local.GetUtcOffset(DateTime.Now)).TotalMinutes.ToString();
 

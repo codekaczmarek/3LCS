@@ -30,6 +30,7 @@
 
             <!-- Project grid -->
             <DataGrid Grid.Row="1"
+                      x:Name="ProjectGrid"
                       ItemsSource="{Binding FilteredProjects}"
                       SelectedItem="{Binding SelectedProject}"
                       AutoGenerateColumns="False"
@@ -40,7 +41,21 @@
                       CanUserReorderColumns="True"
                       CanUserSortColumns="True"
                       CanUserResizeColumns="True"
-                      MouseDoubleClick="DataGrid_MouseDoubleClick">
+                      MouseDoubleClick="DataGrid_MouseDoubleClick"
+                      Tag="{Binding}">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                        <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Add to Favourites"    Command="{Binding PlacementTarget.Tag.AddProjectToFavouritesCommand,    RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Remove from Favourites" Command="{Binding PlacementTarget.Tag.RemoveProjectFromFavouritesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <Separator/>
+                        <MenuItem Header="Set friendly name…"  Command="{Binding PlacementTarget.Tag.SetProjectFriendlyNameCommand,      RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
                 <DataGrid.Columns>
                     <!-- Favourite star -->
                     <DataGridTemplateColumn Header="★" Width="28" CanUserSort="True" SortMemberPath="Favorite" CanUserResize="False">

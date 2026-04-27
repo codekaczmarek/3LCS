@@ -77,6 +77,123 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- ── Shared environment tile template (used inside Favourites accordion) ─── -->
+        <DataTemplate x:Key="EnvironmentTileTemplate">
+            <Border Width="220" Margin="6" Padding="12,10"
+                    CornerRadius="6" BorderThickness="1"
+                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=TabControl}}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background"  Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+                        <Setter Property="BorderBrush" Value="#BBBBBB"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Instance.DeploymentStatus}" Value="{x:Null}">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                <Setter Property="BorderBrush"     Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"/>
+                                <Setter Property="BorderThickness" Value="2"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Logon to Application" Command="{Binding PlacementTarget.Tag.LogonToApplicationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Open RDP"             Command="{Binding PlacementTarget.Tag.OpenRdpCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <Separator/>
+                        <MenuItem Header="Start" Command="{Binding PlacementTarget.Tag.StartEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                            <MenuItem.Icon><Path Data="M 0,0 L 10,5 L 0,10 Z" Fill="#2EA043" Stretch="Uniform" Width="12" Height="12"/></MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Stop"  Command="{Binding PlacementTarget.Tag.StopEnvironmentCommand,  RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                            <MenuItem.Icon><Path Data="M 0,0 H 10 V 10 H 0 Z" Fill="#D1242F" Stretch="Uniform" Width="12" Height="12"/></MenuItem.Icon>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Header="Add NSG Rule"  Command="{Binding PlacementTarget.Tag.AddNsgRuleCommand,  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Apply Package" Command="{Binding PlacementTarget.Tag.ApplyPackageCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <Separator/>
+                        <MenuItem Header="LCS Instance Links">
+                            <MenuItem Header="Instance Details"             Command="{Binding PlacementTarget.Tag.OpenInstanceDetailsCommand,        RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <MenuItem Header="Environment Monitoring"       Command="{Binding PlacementTarget.Tag.OpenEnvironmentMonitoringCommand,  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <MenuItem Header="Detailed Version Information" Command="{Binding PlacementTarget.Tag.OpenDetailedVersionInfoCommand,    RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <MenuItem Header="Environment Change History"   Command="{Binding PlacementTarget.Tag.OpenEnvironmentChangeHistoryCommand,RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Header="Set friendly name…"
+                                  Command="{Binding PlacementTarget.Tag.SetEnvironmentFriendlyNameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <Separator/>
+                        <MenuItem Header="Remove from Favourites" Command="{Binding PlacementTarget.Tag.RemoveFromFavouritesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <StackPanel>
+                    <!-- Liveness + Name row -->
+                    <DockPanel LastChildFill="True" Margin="0,0,0,4">
+                        <ContentPresenter DockPanel.Dock="Left"
+                                          ContentTemplate="{StaticResource LivenessCellTemplate}"
+                                          Content="{Binding}"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,6,0"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel.ToolTip>
+                                <ToolTip>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Instance.DisplayName}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding Instance.CurrentApplicationBuildVersion, StringFormat='App Build: {0}'}"/>
+                                        <TextBlock Text="{Binding Instance.CurrentPlatformReleaseName, StringFormat='Platform: {0}'}"/>
+                                        <TextBlock Text="{Binding Instance.DeployedBy, StringFormat='Deployed by: {0}'}"/>
+                                        <TextBlock Text="{Binding Instance.DeployedOn, StringFormat='Deployed on: {0}'}"/>
+                                        <TextBlock Text="{Binding Instance.TopologyDisplayName, StringFormat='Topology: {0}'}"/>
+                                    </StackPanel>
+                                </ToolTip>
+                            </StackPanel.ToolTip>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8EC;"
+                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                           FontSize="11" VerticalAlignment="Center" Margin="0,0,3,0"
+                                           Foreground="#5C5C5C">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasFriendlyName}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding DisplayPrimary}"
+                                           FontWeight="SemiBold" FontSize="13"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding DisplaySecondary}"
+                                       FontSize="10" Foreground="#888888" FontStyle="Italic"
+                                       TextTrimming="CharacterEllipsis">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasFriendlyName}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </DockPanel>
+                    <!-- Status badges -->
+                    <TextBlock Text="{Binding Instance.DeploymentStatus}"
+                               FontSize="11" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding Instance.CurrentApplicationReleaseName}"
+                               FontSize="11" Foreground="#444444"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
     </Window.Resources>
     <Grid RowDefinitions="Auto,*,Auto,Auto">
 
@@ -180,7 +297,241 @@
         </Border>
 
         <!-- Main Content -->
-        <TabControl Grid.Row="1" Margin="5">
+        <TabControl Grid.Row="1" Margin="5"
+                    SelectedIndex="{Binding SelectedTabIndex}">
+            <!-- ── Favourites ──────────────────────────────────────────────── -->
+            <TabItem Header="⭐ Favourites">
+                <Grid>
+                    <!-- Empty-state overlay: shown when there are no favourite groups at all -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding FavouriteGroups.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="&#xE734;"
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                   FontSize="48" HorizontalAlignment="Center"
+                                   Foreground="#CCCCCC"/>
+                        <TextBlock Text="No favourites yet"
+                                   FontSize="14" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,12,0,4"
+                                   Foreground="#888888"/>
+                        <TextBlock Text="Right-click a project in the Projects window or an environment in the Cloud-Hosted Environments tab and choose Add to Favourites."
+                                   FontSize="12" HorizontalAlignment="Center"
+                                   Foreground="#AAAAAA" MaxWidth="420"
+                                   TextWrapping="Wrap" TextAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Accordion: one Expander per favourite project group -->
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding FavouriteGroups}" Margin="6,4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                                              Margin="0,0,0,6">
+
+                                        <!-- ── Header ── -->
+                                        <Expander.Header>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=TabControl}}">
+                                                <StackPanel.InputBindings>
+                                                    <MouseBinding MouseAction="LeftDoubleClick"
+                                                                  Command="{Binding Tag.OpenFavouriteProjectCommand, RelativeSource={RelativeSource AncestorType=StackPanel}}"
+                                                                  CommandParameter="{Binding}"/>
+                                                </StackPanel.InputBindings>
+                                                <StackPanel.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="Open (switch to Cloud-Hosted)"
+                                                                  Command="{Binding PlacementTarget.Tag.OpenFavouriteProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                        <MenuItem Header="Set friendly name…"
+                                                                  Command="{Binding PlacementTarget.Tag.SetProjectFriendlyNameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                        <Separator/>
+                                                        <!-- Shown when NOT explicitly a favourite project -->
+                                                        <MenuItem Header="★ Mark project as favourite"
+                                                                  Command="{Binding PlacementTarget.Tag.MarkProjectFavouriteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                                            <MenuItem.Style>
+                                                                <Style TargetType="MenuItem">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding PlacementTarget.DataContext.IsExplicitFavourite, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </MenuItem.Style>
+                                                        </MenuItem>
+                                                        <!-- Shown when IS explicitly a favourite project -->
+                                                        <MenuItem Header="Remove project from Favourites"
+                                                                  Command="{Binding PlacementTarget.Tag.UnmarkProjectFavouriteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                                            <MenuItem.Style>
+                                                                <Style TargetType="MenuItem">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding PlacementTarget.DataContext.IsExplicitFavourite, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </MenuItem.Style>
+                                                        </MenuItem>
+                                                    </ContextMenu>
+                                                </StackPanel.ContextMenu>
+
+                                                <!-- Project icon -->
+                                                <TextBlock Text="&#xE8B7;"
+                                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                           FontSize="14" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"
+                                                           Margin="0,0,6,0"/>
+                                                <!-- Tag icon (visible when alias set) -->
+                                                <TextBlock Text="&#xE8EC;"
+                                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                           FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                           Foreground="#5C5C5C">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasFriendlyName}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <!-- Primary: alias or real project name -->
+                                                <TextBlock Text="{Binding DisplayPrimary}"
+                                                           FontWeight="SemiBold" FontSize="13"
+                                                           VerticalAlignment="Center"
+                                                           ToolTip="Double-click to open this project"/>
+                                                <!-- Real name subtitle (only when alias is set) -->
+                                                <TextBlock Text="{Binding DisplaySecondary}"
+                                                           FontSize="10" Foreground="#888888" FontStyle="Italic"
+                                                           VerticalAlignment="Center" Margin="4,0,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasFriendlyName}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <!-- Explicit-favourite star -->
+                                                <TextBlock Text=" ★"
+                                                           FontSize="12" VerticalAlignment="Center"
+                                                           Foreground="#F5A623"
+                                                           ToolTip="Explicitly favourited project">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsExplicitFavourite}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <!-- Environment count badge -->
+                                                <TextBlock FontSize="11" Foreground="#888888"
+                                                           VerticalAlignment="Center" Margin="6,0,0,0"
+                                                           Text="{Binding Environments.Count, StringFormat='({0})'}"/>
+                                            </StackPanel>
+                                        </Expander.Header>
+
+                                        <!-- ── Content ── -->
+                                        <Grid>
+                                            <!-- Empty-project placeholder -->
+                                            <TextBlock Margin="12,8"
+                                                       FontSize="11" Foreground="#AAAAAA" FontStyle="Italic"
+                                                       Text="No favourite environments in this project — open the project to browse and add some.">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasEnvironments}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+
+                                            <!-- Environment tiles -->
+                                            <ListBox ItemsSource="{Binding Environments}"
+                                                     SelectedItem="{Binding DataContext.SelectedFavouriteRow,
+                                                         RelativeSource={RelativeSource AncestorType=TabControl}}"
+                                                     Background="Transparent" BorderThickness="0"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                                <ListBox.Style>
+                                                    <Style TargetType="ListBox">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasEnvironments}" Value="False">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ListBox.Style>
+                                                <ListBox.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal" Margin="4,4,4,0"/>
+                                                    </ItemsPanelTemplate>
+                                                </ListBox.ItemsPanel>
+                                                <ListBox.ItemContainerStyle>
+                                                    <Style TargetType="ListBoxItem">
+                                                        <EventSetter Event="PreviewMouseRightButtonDown" Handler="FavouriteTile_PreviewMouseRightButtonDown"/>
+                                                        <Setter Property="Padding" Value="0"/>
+                                                        <Setter Property="Margin"  Value="0"/>
+                                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="ListBoxItem">
+                                                                    <Border Background="{TemplateBinding Background}"
+                                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                                            BorderThickness="{TemplateBinding BorderThickness}">
+                                                                        <ContentPresenter/>
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsSelected" Value="True">
+                                                                            <Setter Property="Background" Value="Transparent"/>
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </ListBox.ItemContainerStyle>
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <ContentPresenter Content="{Binding}"
+                                                                          ContentTemplate="{StaticResource EnvironmentTileTemplate}"/>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Grid>
+
+                                    </Expander>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+            <!-- ── Cloud-Hosted Environments ──────────────────────────────── -->
             <TabItem Header="Cloud-Hosted Environments">
                 <Grid>
                     <DataGrid ItemsSource="{Binding CheInstances}"
@@ -197,7 +548,47 @@
                             <!-- Liveness icon -->
                             <DataGridTemplateColumn Header="" Width="28" CanUserSort="False" CanUserResize="False"
                                                     CellTemplate="{StaticResource LivenessCellTemplate}"/>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Instance.DisplayName}" Width="200"/>
+                            <DataGridTemplateColumn Header="Name" Width="200" SortMemberPath="DisplayPrimary">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="2,2" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE8EC;"
+                                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                           FontSize="10" VerticalAlignment="Center" Margin="0,0,3,0"
+                                                           Foreground="#5C5C5C">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasFriendlyName}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding DisplayPrimary}"
+                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding DisplaySecondary}"
+                                                       FontSize="10" Foreground="#888888" FontStyle="Italic"
+                                                       TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasFriendlyName}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Instance ID" Binding="{Binding Instance.InstanceId}" Width="120"/>
                             <DataGridTextColumn Header="Environment ID" Binding="{Binding Instance.EnvironmentId}" Width="120"/>
                             <DataGridTextColumn Header="Deployment Status" Binding="{Binding Instance.DeploymentStatus}" Width="130"/>
@@ -219,8 +610,12 @@
                                 <MenuItem Header="Logon to Application" Command="{Binding PlacementTarget.DataContext.LogonToApplicationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem Header="Open RDP" Command="{Binding PlacementTarget.DataContext.OpenRdpCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <Separator/>
-                                <MenuItem Header="Start" Command="{Binding PlacementTarget.DataContext.StartEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <MenuItem Header="Stop" Command="{Binding PlacementTarget.DataContext.StopEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Start" Command="{Binding PlacementTarget.DataContext.StartEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                    <MenuItem.Icon><Path Data="M 0,0 L 10,5 L 0,10 Z" Fill="#2EA043" Stretch="Uniform" Width="12" Height="12"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Stop" Command="{Binding PlacementTarget.DataContext.StopEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                    <MenuItem.Icon><Path Data="M 0,0 H 10 V 10 H 0 Z" Fill="#D1242F" Stretch="Uniform" Width="12" Height="12"/></MenuItem.Icon>
+                                </MenuItem>
                                 <Separator/>
                                 <MenuItem Header="Add NSG Rule" Command="{Binding PlacementTarget.DataContext.AddNsgRuleCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem Header="Apply Package" Command="{Binding PlacementTarget.DataContext.ApplyPackageCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
@@ -233,6 +628,11 @@
                                 </MenuItem>
                                 <Separator/>
                                 <MenuItem Header="Delete" Command="{Binding PlacementTarget.DataContext.DeleteEnvironmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <Separator/>
+                                <MenuItem Header="Set friendly name…"
+                                          Command="{Binding PlacementTarget.DataContext.SetEnvironmentFriendlyNameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <Separator/>
+                                <MenuItem Header="Add to Favourites" Command="{Binding PlacementTarget.DataContext.AddToFavouritesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                     </DataGrid>

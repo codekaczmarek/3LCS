@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using ThreeLCS.Models;
 using ThreeLCS.Services.Interfaces;
@@ -108,6 +109,52 @@ namespace ThreeLCS.Services.Implementations
                 System.Enum.TryParse(response.Data.ToString(), out DeploymentEnvironmentType envType))
                 return envType;
             return DeploymentEnvironmentType.MicrosoftManagedIaas;
+        }
+
+        public async Task<Dictionary<int, List<(CloudHostedInstance Instance, FavouriteEnvironment Fav)>>>
+            GetFavouriteCheInstancesAsync(IEnumerable<FavouriteProject> projects)
+        {
+            var result = new Dictionary<int, List<(CloudHostedInstance, FavouriteEnvironment)>>();
+
+            foreach (var project in projects)
+            {
+                var pairs = new List<(CloudHostedInstance, FavouriteEnvironment)>();
+                result[project.Id] = pairs;
+
+                if (project.Environments.Count == 0) continue;
+
+                using (Http.BeginProjectScope(project.Id, (ProjectType)project.ProjectTypeId))
+                {
+                    var instances = await GetCheInstancesAsync();
+                    var envIds = new HashSet<string>(project.Environments.Select(e => e.Id));
+
+                    foreach (var instance in instances)
+                    {
+                        if (instance.EnvironmentId == null) continue;
+                        if (!envIds.Contains(instance.EnvironmentId)) continue;
+                        var fav = project.Environments.First(e => e.Id == instance.EnvironmentId);
+                        pairs.Add((instance, fav));
+                    }
+
+                    // Environments missing from LCS → placeholder so the tile still appears
+                    var fetchedIds = new HashSet<string>(instances
+                        .Where(i => i.EnvironmentId != null)
+                        .Select(i => i.EnvironmentId!));
+
+                    foreach (var missing in project.Environments.Where(e => !fetchedIds.Contains(e.Id)))
+                    {
+                        var placeholder = new CloudHostedInstance
+                        {
+                            EnvironmentId = missing.Id,
+                            DisplayName   = missing.Name,
+                            DeploymentStatus = "Not found in LCS"
+                        };
+                        pairs.Add((placeholder, missing));
+                    }
+                }
+            }
+
+            return result;
         }
     }
 }

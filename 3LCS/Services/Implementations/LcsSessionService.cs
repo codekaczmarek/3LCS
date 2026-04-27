@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
@@ -44,7 +44,7 @@ namespace ThreeLCS.Services.Implementations
             WeakReferenceMessenger.Default.RegisterAll(this);
         }
 
-        // ── Notification methods ──────────────────────────────────────────────
+        #region Notification methods
 
         public void NotifyLoggedIn()
         {
@@ -86,7 +86,9 @@ namespace ThreeLCS.Services.Implementations
             _requestVerificationToken = null;
         }
 
-        // ── Token management ──────────────────────────────────────────────────
+        #endregion
+
+        #region Token management
 
         public async Task<string?> GetValidTokenAsync()
         {
@@ -179,7 +181,9 @@ namespace ThreeLCS.Services.Implementations
             }
         }
 
-        // ── Message receivers ─────────────────────────────────────────────────
+        #endregion
+
+        #region Message receivers
 
         void IRecipient<SessionStateChangedMessage>.Receive(SessionStateChangedMessage message)
         {
@@ -222,5 +226,7 @@ namespace ThreeLCS.Services.Implementations
             else
                 Application.Current?.Dispatcher.InvokeAsync(action);
         }
+        #endregion
+
     }
 }

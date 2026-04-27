@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System.Windows;
 using ThreeLCS.Services.Interfaces;
+using ThreeLCS.Views;
 
 namespace ThreeLCS.Services.Implementations
 {
@@ -14,6 +15,12 @@ namespace ThreeLCS.Services.Implementations
 
         public bool ShowConfirm(string message, string title = "Confirm") =>
             MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        public string? ShowInput(string prompt, string title, string currentValue = "")
+        {
+            var dialog = new InputDialog(prompt, title, currentValue) { Owner = Application.Current.MainWindow };
+            return dialog.ShowDialog() == true ? dialog.Result : null;
+        }
 
         public string? ShowSaveFileDialog(string defaultName, string filter)
         {

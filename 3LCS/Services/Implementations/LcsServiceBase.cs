@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
@@ -49,7 +49,7 @@ namespace ThreeLCS.Services.Implementations
 
         protected static long Ts() => DateTimeOffset.Now.ToUnixTimeSeconds();
 
-        // ── Core execution ─────────────────────────────────────────────────────
+        #region Core execution
 
         private async Task<string> ExecuteGetAsync(string url)
         {
@@ -290,7 +290,9 @@ namespace ThreeLCS.Services.Implementations
             }
         }
 
-        // ── Response parsing ───────────────────────────────────────────────────
+        #endregion
+
+        #region Response parsing
 
         private Response? ParseResponse(string body)
         {
@@ -334,7 +336,9 @@ namespace ThreeLCS.Services.Implementations
         private T? DeserializeJsonp<T>(string body) where T : class
             => DeserializeDirect<T>(body.TrimStart('(').TrimEnd(')'));
 
-        // ── Async helpers ──────────────────────────────────────────────────────
+        #endregion
+
+        #region Async helpers
 
         protected async Task<Response?> GetResponseAsync(string url)
             => ParseResponse(await ExecuteGetAsync(url));
@@ -379,7 +383,9 @@ namespace ThreeLCS.Services.Implementations
         protected async Task<T?> PostJsonAsync<T>(string url, object payload) where T : class
             => ExtractData<T>(await PostJsonResponseAsync(url, payload));
 
-        // ── Sync helpers ───────────────────────────────────────────────────────
+        #endregion
+
+        #region Sync helpers
 
         protected Response? GetResponseSync(string url)
             => ParseResponse(ExecuteGetSync(url));
@@ -409,5 +415,7 @@ namespace ThreeLCS.Services.Implementations
 
         protected T? PostJsonSync<T>(string url, object payload) where T : class
             => ExtractData<T>(PostJsonResponseSync(url, payload));
+
+        #endregion
     }
 }
