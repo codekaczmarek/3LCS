@@ -78,11 +78,5 @@ namespace ThreeLCS.Services.Implementations
             writer.WriteEndDocument();
         }
 
-        public void ExportToWord(string content, string filePath)
-        {
-            using var doc = Xceed.Words.NET.DocX.Create(filePath);
-            doc.InsertParagraph(content);
-            doc.Save();
-        }
     }
 }

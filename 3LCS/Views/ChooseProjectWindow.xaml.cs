@@ -15,10 +15,33 @@ namespace ThreeLCS.Views
             InitializeComponent();
             _vm = viewModel;
             DataContext = viewModel;
-            Loaded += async (s, e) => await viewModel.LoadProjectsCommand.ExecuteAsync(null);
+            Loaded += async (s, e) =>
+            {
+                await viewModel.LoadProjectsCommand.ExecuteAsync(null);
+                SearchBox.Focus();
+            };
         }
 
         public LcsProject? SelectedProject => _vm.SelectedProject;
+
+        private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            int count = ProjectGrid.Items.Count;
+            if (count == 0) return;
+
+            if (e.Key == Key.Down)
+            {
+                ProjectGrid.SelectedIndex = Math.Min(ProjectGrid.SelectedIndex + 1, count - 1);
+                ProjectGrid.ScrollIntoView(ProjectGrid.SelectedItem);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Up)
+            {
+                ProjectGrid.SelectedIndex = Math.Max(ProjectGrid.SelectedIndex - 1, 0);
+                ProjectGrid.ScrollIntoView(ProjectGrid.SelectedItem);
+                e.Handled = true;
+            }
+        }
 
         private void DataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {

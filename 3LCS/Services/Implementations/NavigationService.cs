@@ -58,8 +58,26 @@ namespace ThreeLCS.Services.Implementations
             Application.Current.Dispatcher.Invoke(() =>
             {
                 var w = Resolve<ChooseProjectWindow>();
-                w.ShowDialog();
-                result = w.SelectedProject;
+
+                // Position the window just below the project switcher button in the toolbar
+                if (Application.Current.MainWindow?.FindName("ProjectSwitcherButton") is FrameworkElement btn)
+                {
+                    var pt = btn.PointToScreen(new Point(0, btn.ActualHeight));
+                    w.Left = pt.X;
+                    w.Top  = pt.Y;
+                    // Clamp so the window doesn't fall off the right or bottom edge
+                    var work = SystemParameters.WorkArea;
+                    if (w.Left + w.Width  > work.Right)  w.Left = work.Right  - w.Width;
+                    if (w.Top  + w.Height > work.Bottom) w.Top  = work.Bottom - w.Height;
+                }
+                else
+                {
+                    w.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                    w.Owner = Application.Current.MainWindow;
+                }
+
+                if (w.ShowDialog() == true)
+                    result = w.SelectedProject;
             });
             return result;
         });

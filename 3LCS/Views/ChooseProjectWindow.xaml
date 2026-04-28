@@ -3,13 +3,87 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:ThreeLCS.Views.Converters"
         Title="Choose Project" Height="550" Width="900"
-        WindowStartupLocation="CenterOwner">
+        WindowStyle="None" WindowStartupLocation="Manual">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="36" ResizeBorderThickness="4"
+                      GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
         <conv:StringToVisibilityConverter x:Key="StringToVis"/>
+        <!-- Close caption button style (matching MainWindow) -->
+        <Style x:Key="CloseCaptionBtn" TargetType="Button">
+            <Setter Property="Width"            Value="46"/>
+            <Setter Property="Background"       Value="Transparent"/>
+            <Setter Property="BorderThickness"  Value="0"/>
+            <Setter Property="FocusVisualStyle"  Value="{x:Null}"/>
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#C42B1C"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#8E1B10"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
-    <Grid>
-        <Grid Margin="10" IsEnabled="{Binding IsNotBusy}">
+    <Grid RowDefinitions="Auto,*">
+        <!-- Title bar -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                Height="36">
+            <Grid WindowChrome.IsHitTestVisibleInChrome="True">
+                <!-- Title + inline spinner (shown while loading) -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
+                    <TextBlock Text="Choose Project" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
+                    <Grid Width="14" Height="14" Margin="10,0,0,0" VerticalAlignment="Center"
+                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                        <Ellipse Stroke="#E0E0E0" StrokeThickness="2" Fill="Transparent"/>
+                        <Ellipse Stroke="#0078D4" StrokeThickness="2" Fill="Transparent"
+                                 StrokeDashArray="11 33"
+                                 RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <RotateTransform Angle="0"/>
+                            </Ellipse.RenderTransform>
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsVisible" Value="True">
+                                            <Trigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation
+                                                            Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                            From="0" To="360" Duration="0:0:0.9"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.EnterActions>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                    </Grid>
+                </StackPanel>
+                <Button Style="{StaticResource CloseCaptionBtn}" Command="{Binding CancelCommand}"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Height="32">
+                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                </Button>
+            </Grid>
+        </Border>
+        <Grid Grid.Row="1" Margin="10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -24,8 +98,9 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="🔍  Search:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBox Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         VerticalContentAlignment="Center" Padding="4,3"/>
+                <TextBox x:Name="SearchBox" Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         VerticalContentAlignment="Center" Padding="4,3"
+                         PreviewKeyDown="SearchBox_PreviewKeyDown"/>
             </Grid>
 
             <!-- Project grid -->
@@ -87,15 +162,6 @@
                 <Button Content="OK" Command="{Binding SelectProjectCommand}" Width="80" Margin="5,0"
                         IsDefault="True"/>
                 <Button Content="Cancel" Command="{Binding CancelCommand}" Width="80" IsCancel="True"/>
-            </StackPanel>
-        </Grid>
-
-        <!-- Loading overlay -->
-        <Grid Background="#88000000" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <ProgressBar IsIndeterminate="True" Width="200" Height="20"/>
-                <TextBlock Text="Loading projects…" Foreground="White" HorizontalAlignment="Center"
-                           Margin="0,8,0,0" FontSize="13"/>
             </StackPanel>
         </Grid>
     </Grid>

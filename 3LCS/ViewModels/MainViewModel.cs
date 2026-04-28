@@ -342,6 +342,81 @@ namespace ThreeLCS.ViewModels
             }
         }
 
+        #region Project quick-search
+
+        private List<LcsProject>? _cachedProjects;
+
+        [ObservableProperty] private string _projectSearchText = string.Empty;
+        [ObservableProperty] private ObservableCollection<LcsProject> _projectSuggestions = new();
+        [ObservableProperty] private bool _isProjectPickerOpen;
+        [ObservableProperty] private LcsProject? _selectedProjectSuggestion;
+
+        partial void OnSelectedProjectSuggestionChanged(LcsProject? value)
+        {
+            if (value == null) return;
+            QuickSwitchProject(value);
+        }
+
+        partial void OnProjectSearchTextChanged(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                IsProjectPickerOpen = false;
+                ProjectSuggestions.Clear();
+                return;
+            }
+            if (_cachedProjects == null)
+                _ = EnsureProjectCacheAsync();
+            else
+                FilterProjectSuggestions(value);
+        }
+
+        private async Task EnsureProjectCacheAsync()
+        {
+            try { _cachedProjects = await _projectService.GetAllProjectsAsync(); }
+            catch { _cachedProjects = new List<LcsProject>(); }
+            FilterProjectSuggestions(ProjectSearchText);
+        }
+
+        private void FilterProjectSuggestions(string query)
+        {
+            ProjectSuggestions.Clear();
+            if (_cachedProjects == null) return;
+            foreach (var p in _cachedProjects)
+            {
+                if (p.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) == true ||
+                    p.OrganizationName?.Contains(query, StringComparison.OrdinalIgnoreCase) == true ||
+                    p.Id.ToString().Contains(query))
+                    ProjectSuggestions.Add(p);
+            }
+            IsProjectPickerOpen = ProjectSuggestions.Count > 0;
+        }
+
+        [RelayCommand]
+        private void CloseProjectPicker()
+        {
+            IsProjectPickerOpen = false;
+            ProjectSearchText = string.Empty;
+        }
+
+        private void QuickSwitchProject(LcsProject project)
+        {
+            IsProjectPickerOpen = false;
+            ProjectSearchText = string.Empty;
+            SelectedProjectSuggestion = null;
+            SelectedProject = project;
+            _http.ChangeLcsProjectId(project.Id.ToString());
+            _http.LcsProjectTypeId = project.ProjectTypeId;
+            WindowTitle = $"3LCS — {project.Name}";
+            _settings.LastProjectId = project.Id.ToString();
+            _settings.LastProjectName = project.Name ?? string.Empty;
+            _settings.LastProjectTypeId = (int)project.ProjectTypeId;
+            _settings.Save();
+            _ = Refresh();
+        }
+
+        #endregion
+
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private void OpenRdp()

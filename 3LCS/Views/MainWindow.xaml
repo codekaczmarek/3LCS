@@ -3,18 +3,72 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:tb="clr-namespace:Hardcodet.Wpf.TaskbarNotification;assembly=Hardcodet.NotifyIcon.Wpf"
         xmlns:conv="clr-namespace:ThreeLCS.Views.Converters"
         mc:Ignorable="d"
         Title="{Binding WindowTitle}" Height="600" Width="1000"
+        WindowStyle="None"
         Icon="../Assets/favicon-white.ico"
         UseLayoutRounding="True">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="48" ResizeBorderThickness="4"
+                      GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
     <Window.InputBindings>
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
     </Window.InputBindings>
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
         <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
+
+        <!-- Caption button styles -->
+        <Style x:Key="CaptionBtn" TargetType="Button">
+            <Setter Property="Width"           Value="46"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1A000000"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#33000000"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CloseCaptionBtn" TargetType="Button">
+            <Setter Property="Width"           Value="46"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#C42B1C"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#8E1B10"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <!-- ── Liveness icon cell template (shared by both grids) ─────────── -->
         <DataTemplate x:Key="LivenessCellTemplate">
@@ -246,7 +300,9 @@
                 Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
                 BorderThickness="0,0,0,1"
                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
-            <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,3">
+            <!-- Outer grid: toolbar content + caption buttons overlay -->
+            <Grid WindowChrome.IsHitTestVisibleInChrome="True">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="6,3,138,3">
 
                 <!-- Brand -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,12,0">
@@ -259,7 +315,7 @@
                 </StackPanel>
 
                 <!-- Action groups -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
 
                     <!-- Account -->
                     <Button Style="{StaticResource CmdBtn}" Command="{Binding LoginToLcsCommand}" ToolTip="Login to LCS">
@@ -279,13 +335,6 @@
 
                     <Rectangle Width="1" Fill="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" Margin="6,8" VerticalAlignment="Stretch"/>
 
-                    <!-- Project -->
-                    <Button Style="{StaticResource CmdBtn}" Command="{Binding ChooseProjectCommand}" ToolTip="Choose Project">
-                        <StackPanel>
-                            <TextBlock Text="&#xE8B7;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Project" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </Button>
                     <Button Style="{StaticResource CmdBtn}" Command="{Binding RefreshCommand}" ToolTip="Refresh (F5)">
                         <StackPanel>
                             <TextBlock Text="&#xE72C;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16"
@@ -328,13 +377,59 @@
                     </Button>
                 </StackPanel>
 
-                <!-- Right: About -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Current project display / switch button -->
+                <Button x:Name="ProjectSwitcherButton"
+                        Grid.Column="1" Style="{StaticResource CmdBtn}"
+                        Command="{Binding ChooseProjectCommand}"
+                        ToolTip="Click to switch project"
+                        Margin="4,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8B7;"
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                   FontSize="14" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource {x:Static SystemColors.AccentColorBrushKey}}"
+                                   Margin="0,0,6,0"/>
+                        <TextBlock FontSize="12" VerticalAlignment="Center"
+                                   Text="{Binding SelectedProject.Name, TargetNullValue='Choose project…'}"/>
+                        <TextBlock Text="&#xE70D;"
+                                   FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                   FontSize="10" VerticalAlignment="Center"
+                                   Foreground="#888888" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Right: About (column 4 = 138 px spacer reserved for OS caption buttons) -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Style="{StaticResource CmdBtn}" Command="{Binding AboutCommand}" ToolTip="About 3LCS">
                         <StackPanel>
                             <TextBlock Text="&#xE946;" FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center"/>
                             <TextBlock Text="About" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                         </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+                <!-- Custom caption buttons overlay (top-right) -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <Button Style="{StaticResource CaptionBtn}" Click="MinimizeButton_Click" ToolTip="Minimize" Height="32">
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button Style="{StaticResource CaptionBtn}" Click="MaximizeButton_Click" ToolTip="Maximize / Restore" Height="32">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="10">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#xE922;"/><!-- Maximize -->
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
+                                            <Setter Property="Text" Value="&#xE923;"/><!-- Restore -->
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button>
+                    <Button Style="{StaticResource CloseCaptionBtn}" Click="CloseButton_Click" ToolTip="Close" Height="32">
+                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                 </StackPanel>
             </Grid>
@@ -807,7 +902,7 @@
         </Border>
 
         <!-- Status bar -->
-        <StatusBar Grid.Row="3">
+        <StatusBar Grid.Row="3" Padding="2,1">
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Circular spinner: visible only when busy -->
@@ -876,9 +971,5 @@
                 </ToggleButton>
             </StatusBarItem>
         </StatusBar>
-
-        <!-- Taskbar icon -->
-        <tb:TaskbarIcon x:Name="TrayIcon" Grid.Row="0"                        IconSource="../Assets/favicon-white.ico"
-                        ToolTipText="3LCS"/>
     </Grid>
 </Window>

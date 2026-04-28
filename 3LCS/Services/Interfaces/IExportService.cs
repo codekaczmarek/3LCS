@@ -7,6 +7,5 @@ namespace ThreeLCS.Services.Interfaces
     {
         void ExportCheInstancesToCsv(List<CloudHostedInstance> instances, string filePath);
         void ExportToRdcManXml(List<CloudHostedInstance> instances, string filePath);
-        void ExportToWord(string content, string filePath);
     }
 }

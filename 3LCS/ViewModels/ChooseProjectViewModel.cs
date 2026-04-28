@@ -1,8 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
@@ -17,6 +20,31 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsHttpClientService _http;
         private readonly IDialogService _dialog;
         private readonly IFavouritesService _favourites;
+
+        // Persists across app restarts in the same folder as other 3LCS user data
+        private static readonly string CacheFilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "3LCS", "projects-cache.json");
+
+        private static List<LcsProject> ReadCache()
+        {
+            try
+            {
+                if (!File.Exists(CacheFilePath)) return new();
+                var json = File.ReadAllText(CacheFilePath);
+                return JsonConvert.DeserializeObject<List<LcsProject>>(json) ?? new();
+            }
+            catch { return new(); }
+        }
+
+        private static void WriteCache(IEnumerable<LcsProject> projects)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(CacheFilePath)!);
+                File.WriteAllText(CacheFilePath, JsonConvert.SerializeObject(projects, Formatting.Indented));
+            }
+            catch { }
+        }
 
         [ObservableProperty] private ObservableCollection<LcsProject> _projects = new();
         [ObservableProperty] private LcsProject? _selectedProject;
@@ -66,21 +94,38 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private async Task LoadProjects()
         {
-            IsBusy = true;
             StatusText = string.Empty;
+
+            // Show cached projects immediately so the list is usable right away
+            var cached = ReadCache();
+            if (cached.Count > 0)
+                Projects = new ObservableCollection<LcsProject>(cached);
+
+            // Then refresh from the server (spinner visible during fetch)
+            IsBusy = true;
             try
             {
                 var projects = await _projectService.GetAllProjectsAsync();
                 Projects = new ObservableCollection<LcsProject>(projects);
                 if (projects.Count == 0)
                     StatusText = "No projects found. Your session may have expired — please log in again.";
+                else
+                    WriteCache(projects); // persist fresh data for next open
             }
             catch (Exception ex)
             {
-                StatusText = "Failed to load projects — your session may have expired.";
-                _dialog.ShowError($"Could not load projects: {ex.Message}\n\nPlease log out and log in again.");
-                foreach (Window window in Application.Current.Windows)
-                    if (window.DataContext == this) { window.DialogResult = false; break; }
+                if (cached.Count > 0)
+                {
+                    // Keep the cached list visible; just warn the user
+                    StatusText = "Could not refresh — showing cached projects from last session.";
+                }
+                else
+                {
+                    StatusText = "Failed to load projects — your session may have expired.";
+                    _dialog.ShowError($"Could not load projects: {ex.Message}\n\nPlease log out and log in again.");
+                    foreach (Window window in Application.Current.Windows)
+                        if (window.DataContext == this) { window.DialogResult = false; break; }
+                }
             }
             finally { IsBusy = false; }
         }
