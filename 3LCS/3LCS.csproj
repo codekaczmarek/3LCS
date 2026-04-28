@@ -32,9 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Assets\favicon-white.ico">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Resource Include="Assets\favicon-white.ico"/>
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

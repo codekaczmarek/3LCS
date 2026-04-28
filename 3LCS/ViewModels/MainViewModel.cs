@@ -67,6 +67,10 @@ namespace ThreeLCS.ViewModels
         private CloudHostedInstance? SelectedSaasInstance => SelectedSaasRow?.Instance;
         private CloudHostedInstance? ActiveEnvInstance => ActiveCheInstance ?? SelectedSaasInstance;
 
+        // False when the Microsoft-Managed Environments tab is active (tab index 2);
+        // used as CanExecute guard for destructive/deployment commands that must not act on SaaS environments.
+        private bool IsLoggedInAndCheActive => IsLoggedIn && SelectedTabIndex != 2;
+
         public MainViewModel(
             ILcsEnvironmentService envService,
             ILcsProjectService projectService,
@@ -214,6 +218,15 @@ namespace ThreeLCS.ViewModels
 
             if (value) StartAutoRefresh();
             else StopAutoRefresh();
+        }
+
+        partial void OnSelectedTabIndexChanged(int value)
+        {
+            // Re-evaluate commands that are blocked on the Microsoft-Managed Environments tab
+            StartEnvironmentCommand.NotifyCanExecuteChanged();
+            StopEnvironmentCommand.NotifyCanExecuteChanged();
+            DeleteEnvironmentCommand.NotifyCanExecuteChanged();
+            ApplyPackageCommand.NotifyCanExecuteChanged();
         }
 
         #region Auth
@@ -497,7 +510,7 @@ namespace ThreeLCS.ViewModels
             Infrastructure.WebBrowserHelper.OpenUri(_envService.GetEnvironmentChangeHistoryUrl(instance));
         }
 
-        [RelayCommand(CanExecute = nameof(IsLoggedIn))]
+        [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
         private async Task DeleteEnvironment()
         {
             var row = ActiveCheRow;
@@ -515,7 +528,7 @@ namespace ThreeLCS.ViewModels
             }
         }
 
-        [RelayCommand(CanExecute = nameof(IsLoggedIn))]
+        [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
         private async Task StartEnvironment()
         {
             var row = ActiveCheRow;
@@ -528,7 +541,7 @@ namespace ThreeLCS.ViewModels
             if (ok) await Refresh();
         }
 
-        [RelayCommand(CanExecute = nameof(IsLoggedIn))]
+        [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
         private async Task StopEnvironment()
         {
             var row = ActiveCheRow;
@@ -566,11 +579,11 @@ namespace ThreeLCS.ViewModels
                     _dialog.ShowInfo(string.IsNullOrEmpty(job.ResultMessage) ? "NSG rule deleted." : job.ResultMessage);
         }
 
-        [RelayCommand(CanExecute = nameof(IsLoggedIn))]
+        [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
         private async Task ApplyPackage()
         {
-            var row = ActiveCheRow ?? SelectedSaasRow;
-            var instance = ActiveEnvInstance;
+            var row = ActiveCheRow;
+            var instance = ActiveCheInstance;
             _logger.LogDebug("ApplyPackage clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
             var package = await _navigation.ShowChoosePackageAsync(instance);
