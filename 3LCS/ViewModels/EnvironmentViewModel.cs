@@ -37,6 +37,8 @@ namespace ThreeLCS.ViewModels
         public bool HasFriendlyName => !string.IsNullOrEmpty(FriendlyName);
         public string DisplayPrimary => HasFriendlyName ? FriendlyName! : (Instance.DisplayName ?? string.Empty);
         public string? DisplaySecondary => HasFriendlyName ? Instance.DisplayName : null;
+        public bool IsTransitional => Instance.DeploymentState
+            is DeploymentState.Starting or DeploymentState.Stopping or DeploymentState.Servicing;
 
         public EnvironmentViewModel(CloudHostedInstance instance) => _instance = instance;
 
@@ -44,6 +46,7 @@ namespace ThreeLCS.ViewModels
         {
             OnPropertyChanged(nameof(DisplayPrimary));
             OnPropertyChanged(nameof(DisplaySecondary));
+            OnPropertyChanged(nameof(IsTransitional));
         }
     }
 }

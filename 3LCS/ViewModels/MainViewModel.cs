@@ -9,13 +9,14 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using ThreeLCS.Jobs;
 using ThreeLCS.Messages;
 using ThreeLCS.Models;
 using ThreeLCS.Services.Interfaces;
 
 namespace ThreeLCS.ViewModels
 {
-    public partial class MainViewModel : ObservableObject, IRecipient<SessionStateChangedMessage>
+    public partial class MainViewModel : ObservableObject, IRecipient<SessionStateChangedMessage>, IBusyHost, IDeploymentCoordinator
     {
         private readonly ILcsEnvironmentService _envService;
         private readonly ILcsProjectService _projectService;
@@ -33,12 +34,14 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsSessionService _sessionState;
         private readonly ILivenessService _livenessService;
         private readonly IBackgroundTaskService _taskService;
+        private readonly IBackgroundJobRunner _runner;
         private readonly IFavouritesService _favourites;
         private readonly ILogger<MainViewModel> _logger;
+        private const string AutoRefreshKey     = "AutoRefresh";
+        private const string LivenessKey         = "Liveness";
+        private const string DeploymentPollingKey = "DeploymentPolling";
+
         private bool _autoLoginInProgress;
-        private ManagedTask? _livenessTask;
-        private ManagedTask? _pollingTask;
-        private ManagedTask? _autoRefreshTask;
         private readonly Dictionary<string, LivenessStatus> _livenessCache = new();
 
         public ILcsApiMonitorService ApiMonitor { get; }
@@ -82,6 +85,7 @@ namespace ThreeLCS.ViewModels
             ILcsSessionService sessionState,
             ILivenessService livenessService,
             IBackgroundTaskService taskService,
+            IBackgroundJobRunner runner,
             IFavouritesService favourites,
             ILogger<MainViewModel> logger)
         {
@@ -102,6 +106,7 @@ namespace ThreeLCS.ViewModels
             _sessionState = sessionState;
             _livenessService = livenessService;
             _taskService = taskService;
+            _runner = runner;
             _favourites = favourites;
             TaskService = taskService;
             _logger = logger;
@@ -425,17 +430,14 @@ namespace ThreeLCS.ViewModels
             _logger.LogDebug("DeleteEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
             if (!_dialog.ShowConfirm($"Delete environment {instance.DisplayName}?")) return;
-            IsBusy = true;
-            try
+            bool ok;
+            using (EnvProjectScope(row))
+                ok = await _runner.RunAsCommandAsync(new DeleteEnvironmentJob(_envService, instance), this, _dialog);
+            if (ok)
             {
-                bool success;
-                using (EnvProjectScope(row))
-                    success = await _envService.DeleteEnvironmentAsync(instance);
-                _dialog.ShowInfo(success ? "Environment deleted." : "Failed to delete environment.");
-                if (success) await Refresh();
+                _dialog.ShowInfo("Environment deleted.");
+                await Refresh();
             }
-            catch (Exception ex) { _dialog.ShowError(ex.Message); }
-            finally { IsBusy = false; }
         }
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
@@ -445,15 +447,10 @@ namespace ThreeLCS.ViewModels
             var instance = ActiveCheInstance;
             _logger.LogDebug("StartEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
-            IsBusy = true;
-            try
-            {
-                using (EnvProjectScope(row))
-                    await _envService.StartStopDeploymentAsync(instance, "start");
-                await Refresh();
-            }
-            catch (Exception ex) { _dialog.ShowError(ex.Message); }
-            finally { IsBusy = false; }
+            bool ok;
+            using (EnvProjectScope(row))
+                ok = await _runner.RunAsCommandAsync(new StartEnvironmentJob(_envService, instance), this, _dialog);
+            if (ok) await Refresh();
         }
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
@@ -463,15 +460,10 @@ namespace ThreeLCS.ViewModels
             var instance = ActiveCheInstance;
             _logger.LogDebug("StopEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
             if (instance == null) return;
-            IsBusy = true;
-            try
-            {
-                using (EnvProjectScope(row))
-                    await _envService.StartStopDeploymentAsync(instance, "stop");
-                await Refresh();
-            }
-            catch (Exception ex) { _dialog.ShowError(ex.Message); }
-            finally { IsBusy = false; }
+            bool ok;
+            using (EnvProjectScope(row))
+                ok = await _runner.RunAsCommandAsync(new StopEnvironmentJob(_envService, instance), this, _dialog);
+            if (ok) await Refresh();
         }
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
@@ -493,16 +485,10 @@ namespace ThreeLCS.ViewModels
             if (instance == null) return;
             var rule = await _navigation.ShowChooseNsgAsync(instance);
             if (rule == null) return;
-            IsBusy = true;
-            try
-            {
-                string result;
-                using (EnvProjectScope(row))
-                    result = await _nsgService.DeleteNsgRuleAsync(instance, rule.Name ?? string.Empty);
-                _dialog.ShowInfo(string.IsNullOrEmpty(result) ? "NSG rule deleted." : result);
-            }
-            catch (Exception ex) { _dialog.ShowError(ex.Message); }
-            finally { IsBusy = false; }
+            var job = new DeleteNsgRuleJob(_nsgService, instance, rule);
+            using (EnvProjectScope(row))
+                if (await _runner.RunAsCommandAsync(job, this, _dialog))
+                    _dialog.ShowInfo(string.IsNullOrEmpty(job.ResultMessage) ? "NSG rule deleted." : job.ResultMessage);
         }
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
@@ -529,18 +515,11 @@ namespace ThreeLCS.ViewModels
                 return;
             }
 
-            IsBusy = true;
-            StatusText = "Applying package...";
-            try
-            {
-                string? log;
-                using (EnvProjectScope(row))
-                    log = await Task.Run(() => _packageService.ApplyPackage(instance, package));
-                if (!string.IsNullOrEmpty(log))
-                    await _navigation.ShowLogDisplayAsync(log);
-            }
-            catch (Exception ex) { _dialog.ShowError(ex.Message); }
-            finally { IsBusy = false; StatusText = "Ready"; }
+            var job = new ApplyPackageJob(_packageService, instance, package);
+            using (EnvProjectScope(row))
+                await _runner.RunAsCommandAsync(job, this, _dialog);
+            if (!string.IsNullOrEmpty(job.Log))
+                await _navigation.ShowLogDisplayAsync(job.Log);
         }
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
@@ -805,79 +784,46 @@ namespace ThreeLCS.ViewModels
 
         private void StartAutoRefresh()
         {
-            StopAutoRefresh();
+            _runner.CancelExclusive(AutoRefreshKey);
             if (!_settings.AutoRefresh) return;
-            _autoRefreshTask = _taskService.Run("Auto Refresh", AutoRefreshLoopAsync);
+            _runner.RunExclusive(
+                new AutoRefreshJob(
+                    _logger,
+                    canRefresh: () => IsLoggedIn && SelectedProject != null && !IsBusy,
+                    refresh: Refresh),
+                AutoRefreshKey);
         }
 
-        private void StopAutoRefresh()
-        {
-            _autoRefreshTask?.Cancel();
-            _autoRefreshTask = null;
-        }
-
-        private async Task AutoRefreshLoopAsync(CancellationToken ct)
-        {
-            try
-            {
-                while (!ct.IsCancellationRequested)
-                {
-                    await Task.Delay(TimeSpan.FromMinutes(1), ct);
-                    if (!IsLoggedIn || SelectedProject == null || IsBusy) continue;
-                    _logger.LogDebug("Auto-refresh triggered");
-                    await Application.Current.Dispatcher.InvokeAsync(async () =>
-                    {
-                        try { await Refresh(); }
-                        catch (Exception ex) { _logger.LogWarning(ex, "Auto-refresh failed"); }
-                    });
-                }
-            }
-            catch (OperationCanceledException) { }
-        }
+        private void StopAutoRefresh() => _runner.CancelExclusive(AutoRefreshKey);
 
         #endregion
 
         #region Liveness
 
-        private void FireLivenessCheck(IEnumerable<EnvironmentViewModel> rows)
-        {
-            _livenessTask?.Cancel();
-            _livenessTask = _taskService.Run("Liveness Check",
-                ct => _livenessService.CheckAllAsync(rows, ct));
-        }
+        private void FireLivenessCheck(IEnumerable<EnvironmentViewModel> rows) =>
+            _runner.RunExclusive(new LivenessCheckJob(_livenessService, rows), LivenessKey);
 
-        private void CancelLiveness()
-        {
-            _livenessTask?.Cancel();
-            _livenessTask = null;
-        }
+        private void CancelLiveness() => _runner.CancelExclusive(LivenessKey);
 
         #endregion
 
         #region Deployment state polling
 
-        private static bool IsTransitionalState(DeploymentState state) =>
-            state is DeploymentState.Starting or DeploymentState.Stopping;
-
-        private static bool IsActionInProgress(LcsEnvironmentActionStatus s) =>
-            s is LcsEnvironmentActionStatus.InProgress
-              or LcsEnvironmentActionStatus.InProgressManually
-              or LcsEnvironmentActionStatus.PreparingEnvironment;
-
         private void StartOrStopPolling(IReadOnlyList<EnvironmentViewModel> rows)
         {
             // Preserve an already-running polling loop (e.g. force-polling started after a
             // Start/Stop request). Only create a new loop when none is active.
-            if (_pollingTask?.Status == ManagedTaskStatus.Running) return;
-            if (!rows.Any(r => IsTransitionalState(r.Instance.DeploymentState))) return;
-            _pollingTask = _taskService.Run("Deployment Polling",
-                ct => PollTransitionalStatesAsync(rows.ToList(), ct));
+            var existing = _runner.GetExclusive(DeploymentPollingKey);
+            if (existing?.Status == ManagedTaskStatus.Running) return;
+            if (!rows.Any(r => DeploymentPollingJob.IsTransitionalState(r.Instance.DeploymentState))) return;
+            _runner.RunExclusive(
+                new DeploymentPollingJob(_envService, _logger, rows.ToList()),
+                DeploymentPollingKey);
         }
 
         /// <summary>
-        /// Sends a start request for the given CHE and starts the shared deployment polling loop,
-        /// identical to what the MainWindow Start button does. The start call is registered as a
-        /// named background task so it appears in the task list.
+        /// Sends a start request for the given CHE and forces a fresh deployment polling loop.
+        /// The start call is registered as a named background task visible in BackgroundTasksWindow.
         /// </summary>
         public void StartCheEnv(EnvironmentViewModel env)
         {
@@ -891,18 +837,18 @@ namespace ThreeLCS.ViewModels
 
         /// <summary>
         /// Starts deployment polling only if not already running. Safe to call even if polling
-        /// is active — in that case it does nothing. Use from external callers (e.g. RdpLaunchViewModel)
-        /// when the machine may already be in a transitional state and polling may be running.
+        /// is active — in that case it does nothing. Used by RdpLaunchViewModel.
         /// </summary>
         public void EnsureDeploymentPolling()
         {
-            if (_pollingTask?.Status == ManagedTaskStatus.Running) return;
+            var existing = _runner.GetExclusive(DeploymentPollingKey);
+            if (existing?.Status == ManagedTaskStatus.Running) return;
             ForceDeploymentPolling();
         }
 
         /// <summary>
-        /// Called externally (e.g. from RdpLaunchViewModel) after a start/stop request is
-        /// sent so that MainWindow reflects state changes via the same 30-second poll loop.
+        /// Checks current states and starts polling if any environment is transitional.
+        /// Called after Refresh() when force-polling was not already active.
         /// </summary>
         public void TriggerDeploymentPolling()
         {
@@ -911,74 +857,20 @@ namespace ThreeLCS.ViewModels
         }
 
         /// <summary>
-        /// Unconditionally starts the deployment poll loop regardless of current states.
-        /// Use this immediately after sending a start/stop request, before LCS has had
-        /// time to reflect the new transitional state. Polls for at least minIterations
-        /// cycles so the loop doesn't exit on the first Stopped reading before LCS updates.
+        /// Unconditionally restarts the deployment poll loop with a minimum-iterations grace
+        /// period. Use immediately after sending a Start/Stop request, before LCS reflects
+        /// the new transitional state.
         /// </summary>
         public void ForceDeploymentPolling()
         {
-            CancelPolling();
             var all = CheInstances.Concat(SaasInstances).ToList();
             if (all.Count == 0) return;
-            _pollingTask = _taskService.Run("Deployment Polling",
-                ct => PollTransitionalStatesAsync(all, ct, minIterations: 5));
+            _runner.RunExclusive(
+                new DeploymentPollingJob(_envService, _logger, all, minIterations: 5),
+                DeploymentPollingKey);
         }
 
-        private void CancelPolling()
-        {
-            _pollingTask?.Cancel();
-            _pollingTask = null;
-        }
-
-        /// <summary>
-        /// Silently polls LCS every 30 seconds while any environment is in a
-        /// transitional state (Starting/Stopping). Updates instance data in-place
-        /// without showing a loading indicator. Stops automatically once all
-        /// environments have left the transitional state (and minIterations has been reached).
-        /// </summary>
-        private async Task PollTransitionalStatesAsync(List<EnvironmentViewModel> rows, CancellationToken ct, int minIterations = 0)
-        {
-            _logger.LogInformation("Deployment state polling started for {Count} environment(s) (minIterations={Min})", rows.Count, minIterations);
-            int iterations = 0;
-            try
-            {
-                while (!ct.IsCancellationRequested)
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(30), ct);
-
-                    var che = await _envService.GetCheInstancesAsync();
-                    var saas = await _envService.GetSaasInstancesAsync();
-                    var fresh = che.Concat(saas).ToDictionary(i => i.EnvironmentId ?? i.InstanceId ?? string.Empty);
-
-                    bool anyStillTransitional = false;
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        foreach (var env in rows)
-                        {
-                            var key = env.Instance.EnvironmentId ?? env.Instance.InstanceId ?? string.Empty;
-                            if (!fresh.TryGetValue(key, out var updated)) continue;
-                            env.Instance = updated;
-                            if (IsTransitionalState(updated.DeploymentState))
-                                anyStillTransitional = true;
-                        }
-                    });
-
-                    iterations++;
-                    _logger.LogInformation("Deployment state poll #{Iter} complete. AnyStillTransitional={AnyStillTransitional}", iterations, anyStillTransitional);
-                    if (!anyStillTransitional && iterations >= minIterations) break;
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Deployment state polling encountered an error — stopping");
-            }
-            finally
-            {
-                _logger.LogInformation("Deployment state polling stopped");
-            }
-        }
+        private void CancelPolling() => _runner.CancelExclusive(DeploymentPollingKey);
 
         #endregion
     }

@@ -54,10 +54,12 @@ namespace ThreeLCS
                     services.AddSingleton<IExportService, ExportService>();
                     services.AddSingleton<ILivenessService, LivenessService>();
                     services.AddSingleton<IBackgroundTaskService, BackgroundTaskService>();
+                    services.AddSingleton<IBackgroundJobRunner, BackgroundJobRunner>();
                     services.AddSingleton<INavigationService>(sp => new NavigationService(sp, sp.GetRequiredService<ILogger<NavigationService>>()));
 
                     // ViewModels
                     services.AddSingleton<MainViewModel>();
+                    services.AddSingleton<IDeploymentCoordinator>(sp => sp.GetRequiredService<MainViewModel>());
                     services.AddTransient<LoginViewModel>();
                     services.AddTransient<ChooseProjectViewModel>();
                     services.AddTransient<AddNsgViewModel>();

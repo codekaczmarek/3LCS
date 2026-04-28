@@ -20,7 +20,7 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsEnvironmentService _envService;
         private readonly ILcsCredentialsService _credentialsService;
         private readonly ISettingsService _settings;
-        private readonly MainViewModel _mainViewModel;
+        private readonly IDeploymentCoordinator _coordinator;
         private readonly ILogger<RdpLaunchViewModel> _logger;
 
         private CancellationTokenSource _cts = new();
@@ -49,13 +49,13 @@ namespace ThreeLCS.ViewModels
             ILcsEnvironmentService envService,
             ILcsCredentialsService credentialsService,
             ISettingsService settings,
-            MainViewModel mainViewModel,
+            IDeploymentCoordinator coordinator,
             ILogger<RdpLaunchViewModel> logger)
         {
             _envService = envService;
             _credentialsService = credentialsService;
             _settings = settings;
-            _mainViewModel = mainViewModel;
+            _coordinator = coordinator;
             _logger = logger;
         }
 
@@ -103,11 +103,11 @@ namespace ThreeLCS.ViewModels
                         {
                             // Register a named background task — identical to the MainWindow Start button
                             StatusText = $"Requesting start of '{instance.DisplayName}'...";
-                            await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.StartCheEnv(_env!));
+                            await Application.Current.Dispatcher.InvokeAsync(() => _coordinator.StartCheEnv(_env!));
                         }
 
                         // Ensure deployment polling is running (reuse existing loop if active)
-                        await Application.Current.Dispatcher.InvokeAsync(() => _mainViewModel.EnsureDeploymentPolling());
+                        await Application.Current.Dispatcher.InvokeAsync(() => _coordinator.EnsureDeploymentPolling());
 
                         // React to EnvironmentViewModel.Instance updates driven by the shared polling loop.
                         // Rather than busy-polling every second, we wait for the PropertyChanged event and
