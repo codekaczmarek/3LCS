@@ -17,8 +17,8 @@ namespace ThreeLCS.Views
             DataContext = viewModel;
             Loaded += async (s, e) =>
             {
-                await viewModel.LoadProjectsCommand.ExecuteAsync(null);
                 SearchBox.Focus();
+                await viewModel.LoadProjectsCommand.ExecuteAsync(null);
             };
         }
 
