@@ -194,12 +194,14 @@ namespace ThreeLCS.Services.Implementations
                     webView = new WebView2();
                     window = new Window
                     {
-                        Width = 0,
-                        Height = 0,
-                        WindowStyle = WindowStyle.None,
-                        ShowInTaskbar = false,
+                        Title = "Signing in automatically… (3LCS)",
+                        Width = 400,
+                        Height = 200,
+                        WindowStyle = WindowStyle.ToolWindow,
+                        ShowInTaskbar = true,
                         ShowActivated = false,
-                        Opacity = 0,
+                        WindowState = WindowState.Minimized,
+                        ResizeMode = ResizeMode.NoResize,
                         Content = webView
                     };
                     window.Show();
