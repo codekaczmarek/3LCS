@@ -62,6 +62,14 @@ jobs:
             -p:AssemblyVersion=${{ steps.version.outputs.VERSION }}.0 `
             -o publish/self-contained
 
+      - name: Copy license files into artifacts
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE "publish/framework-dependent/LICENSE"
+          Copy-Item "Third Party Notices.txt" "publish/framework-dependent/Third Party Notices.txt"
+          Copy-Item LICENSE "publish/self-contained/LICENSE"
+          Copy-Item "Third Party Notices.txt" "publish/self-contained/Third Party Notices.txt"
+
       - name: Zip framework-dependent
         shell: pwsh
         run: |
@@ -73,7 +81,9 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path publish/self-contained/3LCS.exe `
+            -Path "publish/self-contained/3LCS.exe", `
+                  "publish/self-contained/LICENSE", `
+                  "publish/self-contained/Third Party Notices.txt" `
             -DestinationPath "3LCS-${{ steps.version.outputs.VERSION }}-win-x64-self-contained.zip"
 
       - name: Create GitHub Release

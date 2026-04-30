@@ -8,6 +8,7 @@
             <TextBlock Text="{Binding AppName}" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center"/>
             <TextBlock Text="{Binding Version, StringFormat='Version {0}'}" HorizontalAlignment="Center" Margin="0,5"/>
             <TextBlock Text="A WPF rewrite of 2LCS - Lifecycle Services Client" HorizontalAlignment="Center" Margin="0,5" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Copyright}" HorizontalAlignment="Center" Margin="0,5" Foreground="Gray" FontSize="11"/>
             <Button Content="Open GitHub" Command="{Binding OpenGithubCommand}" Margin="0,15,0,5" Width="120"/>
             <Button Content="Close" Command="{Binding CloseCommand}" Width="80"/>
         </StackPanel>

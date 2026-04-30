@@ -10,6 +10,7 @@ namespace ThreeLCS.ViewModels
     {
         [ObservableProperty] private string _version = string.Empty;
         [ObservableProperty] private string _appName = "3LCS";
+        [ObservableProperty] private string _copyright = "© 2026 Dawid Kaczmarek — MIT License";
 
         public AboutViewModel()
         {
@@ -17,7 +18,7 @@ namespace ThreeLCS.ViewModels
         }
 
         [RelayCommand]
-        private void OpenGithub() => WebBrowserHelper.OpenUri("https://github.com/microsoft/2LCS");
+        private void OpenGithub() => WebBrowserHelper.OpenUri("https://github.com/codekaczmarek/3LCS");
 
         [RelayCommand]
         private void Close()

@@ -45,6 +45,14 @@ See the [Releases](../../releases) page for pre-built binaries:
 | `*-framework-dependent.zip` | Requires .NET 10 Desktop Runtime installed |
 | `*-self-contained.zip` | Single EXE, no runtime needed |
 
+## License
+
+3LCS is licensed under the [MIT License](LICENSE).
+
+Third-party component notices are in [Third Party Notices.txt](Third%20Party%20Notices.txt).
+
+This project is based on [microsoft/2LCS](https://github.com/microsoft/2LCS) © Microsoft Corporation (MIT License).
+
 ## Building from source
 
 ```bash
