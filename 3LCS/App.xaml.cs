@@ -157,10 +157,6 @@ namespace ThreeLCS
                 if (result == MessageBoxResult.Yes)
                     WebBrowserHelper.OpenUri(update.InstallerUrl ?? update.ReleaseUrl);
             }
-            catch (InvalidOperationException ex)
-            {
-                logger.LogWarning(ex, "Update check could not start due to a service configuration error");
-            }
             catch (WebException ex)
             {
                 logger.LogWarning(ex, "Network error during update check");
@@ -168,6 +164,10 @@ namespace ThreeLCS
             catch (System.Net.Http.HttpRequestException ex)
             {
                 logger.LogWarning(ex, "HTTP error during update check");
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogWarning(ex, "Update check could not start due to a service configuration error");
             }
         }
 
