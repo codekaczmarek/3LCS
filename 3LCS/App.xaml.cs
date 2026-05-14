@@ -56,6 +56,7 @@ namespace ThreeLCS
                     services.AddSingleton<IBackgroundTaskService, BackgroundTaskService>();
                     services.AddSingleton<IBackgroundJobRunner, BackgroundJobRunner>();
                     services.AddSingleton<INavigationService>(sp => new NavigationService(sp, sp.GetRequiredService<ILogger<NavigationService>>()));
+                    services.AddSingleton<IUpdateService, UpdateService>();
 
                     // ViewModels
                     services.AddSingleton<MainViewModel>();
@@ -134,9 +135,40 @@ namespace ThreeLCS
             {
                 var mainWindow = _host.Services.GetRequiredService<MainWindow>();
                 mainWindow.Show();
+                _ = CheckForUpdateAsync();
             }
 
             base.OnStartup(e);
+        }
+
+        private async System.Threading.Tasks.Task CheckForUpdateAsync()
+        {
+            var logger = _host.Services.GetRequiredService<ILogger<App>>();
+            try
+            {
+                var updateService = _host.Services.GetRequiredService<IUpdateService>();
+                var update = await updateService.CheckForUpdateAsync();
+                if (update is null) return;
+
+                var message = $"A new version of 3LCS is available: {update.Version}\n\nWould you like to open the release page to download it?";
+                var result = MessageBox.Show(message, "Update Available",
+                    MessageBoxButton.YesNo, MessageBoxImage.Information);
+
+                if (result == MessageBoxResult.Yes)
+                    WebBrowserHelper.OpenUri(update.InstallerUrl ?? update.ReleaseUrl);
+            }
+            catch (WebException ex)
+            {
+                logger.LogWarning(ex, "Network error during update check");
+            }
+            catch (System.Net.Http.HttpRequestException ex)
+            {
+                logger.LogWarning(ex, "HTTP error during update check");
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogWarning(ex, "Update check could not start due to a service configuration error");
+            }
         }
 
         protected override async void OnExit(ExitEventArgs e)

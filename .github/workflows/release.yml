@@ -89,6 +89,15 @@ jobs:
                   "publish/self-contained/Third Party Notices.txt" `
             -DestinationPath "3LCS-${{ steps.version.outputs.VERSION }}-win-x64-self-contained.zip"
 
+      - name: Build Windows installer (Inno Setup)
+        shell: pwsh
+        run: |
+          # Inno Setup is pre-installed on windows-latest runners at this path
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc `
+            "/DMyAppVersion=${{ steps.version.outputs.VERSION }}" `
+            "installer\3LCS.iss"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -100,5 +109,6 @@ jobs:
           files: |
             3LCS-${{ steps.version.outputs.VERSION }}-win-x64-framework-dependent.zip
             3LCS-${{ steps.version.outputs.VERSION }}-win-x64-self-contained.zip
+            installer-output/3LCS-${{ steps.version.outputs.VERSION }}-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
