@@ -33,6 +33,7 @@ SetupIconFile=..\3LCS\Assets\favicon-white.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+LicenseFile=..\LICENSE
 ; Uninstall info stored per-user
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
