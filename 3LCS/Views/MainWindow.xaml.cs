@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -66,8 +67,24 @@ namespace ThreeLCS.Views
 
         private void DataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is DataGridRow row)
+            if (sender is DataGridRow row && ItemsControl.ItemsControlFromItemContainer(row) is DataGrid grid)
+            {
+                if (!row.IsSelected)
+                    grid.SelectedItems.Clear();
+
                 row.IsSelected = true;
+            }
+        }
+
+        private void EnvironmentGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DataContext is not MainViewModel viewModel || sender is not DataGrid grid) return;
+
+            var rows = grid.SelectedItems.OfType<EnvironmentViewModel>().ToList();
+            if (ReferenceEquals(grid, CheDataGrid))
+                viewModel.SetSelectedCheRows(rows);
+            else if (ReferenceEquals(grid, SaasDataGrid))
+                viewModel.SetSelectedSaasRows(rows);
         }
 
         private void FavouriteTile_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)

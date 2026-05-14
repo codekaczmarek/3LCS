@@ -457,11 +457,13 @@
             <!-- ── Cloud-Hosted Environments ──────────────────────────────── -->
             <TabItem Header="Cloud-Hosted Environments">
                 <Grid>
-                    <DataGrid ItemsSource="{Binding CheInstances}"
+                    <DataGrid x:Name="CheDataGrid"
+                              ItemsSource="{Binding CheInstances}"
                               SelectedItem="{Binding SelectedCheRow}"
+                              SelectionChanged="EnvironmentGrid_SelectionChanged"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
-                              SelectionMode="Single">
+                              SelectionMode="Extended">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
@@ -564,10 +566,13 @@
                 </Grid>
             </TabItem>
             <TabItem Header="Microsoft-Managed Environments">
-                <DataGrid ItemsSource="{Binding SaasInstances}"
+                <DataGrid x:Name="SaasDataGrid"
+                          ItemsSource="{Binding SaasInstances}"
                           SelectedItem="{Binding SelectedSaasRow}"
+                          SelectionChanged="EnvironmentGrid_SelectionChanged"
                           AutoGenerateColumns="False"
-                          IsReadOnly="True">
+                          IsReadOnly="True"
+                          SelectionMode="Extended">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                             <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
@@ -594,6 +599,20 @@
                         <DataGridTextColumn Header="Topology Type" Binding="{Binding Instance.TopologyType}" Width="100"/>
                         <DataGridTextColumn Header="Topology Version" Binding="{Binding Instance.TopologyVersion}" Width="110"/>
                     </DataGrid.Columns>
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Logon to Application" Command="{Binding PlacementTarget.DataContext.LogonToApplicationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <Separator/>
+                            <MenuItem Header="Add NSG Rule" Command="{Binding PlacementTarget.DataContext.AddNsgRuleCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <Separator/>
+                            <MenuItem Header="LCS Instance Links">
+                                <MenuItem Header="Instance Details" Command="{Binding PlacementTarget.DataContext.OpenInstanceDetailsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Environment Monitoring" Command="{Binding PlacementTarget.DataContext.OpenEnvironmentMonitoringCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Detailed Version Information" Command="{Binding PlacementTarget.DataContext.OpenDetailedVersionInfoCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="Environment Change History" Command="{Binding PlacementTarget.DataContext.OpenEnvironmentChangeHistoryCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            </MenuItem>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                 </DataGrid>
             </TabItem>
         </TabControl>
