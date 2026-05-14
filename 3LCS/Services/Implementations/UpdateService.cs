@@ -52,7 +52,22 @@ namespace ThreeLCS.Services.Implementations
 
                 return new UpdateInfo(tagName, htmlUrl, installerUrl);
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Update check failed");
+                return null;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogWarning(ex, "Update check failed");
+                return null;
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Update check failed");
+                return null;
+            }
+            catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Update check failed");
                 return null;
