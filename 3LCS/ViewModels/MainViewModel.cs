@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using ThreeLCS.Commands;
 using ThreeLCS.Jobs;
 using ThreeLCS.Messages;
 using ThreeLCS.Models;
@@ -29,7 +30,6 @@ namespace ThreeLCS.ViewModels
         private readonly ILcsCredentialsService _credentialsService;
         private readonly ILcsNsgService _nsgService;
         private readonly ILcsDiagnosticsService _diagService;
-        private readonly ILcsPackageService _packageService;
         private readonly ILcsAuthService _authService;
         private readonly ILcsSessionService _sessionState;
         private readonly ILivenessService _livenessService;
@@ -37,6 +37,15 @@ namespace ThreeLCS.ViewModels
         private readonly IBackgroundJobRunner _runner;
         private readonly IFavouritesService _favourites;
         private readonly ILogger<MainViewModel> _logger;
+        private readonly CloudHostedInstanceLogonCommand _cloudHostedInstanceLogonCommand;
+        private readonly CloudHostedInstanceOpenDetailsCommand _cloudHostedInstanceOpenDetailsCommand;
+        private readonly CloudHostedInstanceOpenMonitoringCommand _cloudHostedInstanceOpenMonitoringCommand;
+        private readonly CloudHostedInstanceOpenDetailedVersionInfoCommand _cloudHostedInstanceOpenDetailedVersionInfoCommand;
+        private readonly CloudHostedInstanceOpenChangeHistoryCommand _cloudHostedInstanceOpenChangeHistoryCommand;
+        private readonly CloudHostedInstanceDeleteCommand _cloudHostedInstanceDeleteCommand;
+        private readonly CloudHostedInstanceStartCommand _cloudHostedInstanceStartCommand;
+        private readonly CloudHostedInstanceStopCommand _cloudHostedInstanceStopCommand;
+        private readonly CloudHostedInstanceApplyPackageCommand _cloudHostedInstanceApplyPackageCommand;
         private const string AutoRefreshKey     = "AutoRefresh";
         private const string LivenessKey         = "Liveness";
         private const string DeploymentPollingKey = "DeploymentPolling";
@@ -49,6 +58,8 @@ namespace ThreeLCS.ViewModels
 
         [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _cheInstances = new();
         [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _saasInstances = new();
+        [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _selectedCheRows = new();
+        [ObservableProperty] private ObservableCollection<EnvironmentViewModel> _selectedSaasRows = new();
         [ObservableProperty] private ObservableCollection<FavouriteProjectViewModel> _favouriteGroups = new();
         [ObservableProperty] private EnvironmentViewModel? _selectedCheRow;
         [ObservableProperty] private EnvironmentViewModel? _selectedSaasRow;
@@ -70,6 +81,18 @@ namespace ThreeLCS.ViewModels
         // False when the Microsoft-Managed Environments tab is active (tab index 2);
         // used as CanExecute guard for destructive/deployment commands that must not act on SaaS environments.
         private bool IsLoggedInAndCheActive => IsLoggedIn && SelectedTabIndex != 2;
+
+        public void SetSelectedCheRows(IEnumerable<EnvironmentViewModel> rows)
+        {
+            SelectedCheRows = new ObservableCollection<EnvironmentViewModel>(rows);
+            NotifyEnvironmentSelectionCommands();
+        }
+
+        public void SetSelectedSaasRows(IEnumerable<EnvironmentViewModel> rows)
+        {
+            SelectedSaasRows = new ObservableCollection<EnvironmentViewModel>(rows);
+            NotifyEnvironmentSelectionCommands();
+        }
 
         public MainViewModel(
             ILcsEnvironmentService envService,
@@ -104,7 +127,6 @@ namespace ThreeLCS.ViewModels
             _credentialsService = credentialsService;
             _nsgService = nsgService;
             _diagService = diagService;
-            _packageService = packageService;
             ApiMonitor = apiMonitor;
             _authService = authService;
             _sessionState = sessionState;
@@ -114,6 +136,15 @@ namespace ThreeLCS.ViewModels
             _favourites = favourites;
             TaskService = taskService;
             _logger = logger;
+            _cloudHostedInstanceLogonCommand = new CloudHostedInstanceLogonCommand(_dialog, _logger);
+            _cloudHostedInstanceOpenDetailsCommand = new CloudHostedInstanceOpenDetailsCommand(_envService, _dialog, _logger);
+            _cloudHostedInstanceOpenMonitoringCommand = new CloudHostedInstanceOpenMonitoringCommand(_envService, _dialog, _logger);
+            _cloudHostedInstanceOpenDetailedVersionInfoCommand = new CloudHostedInstanceOpenDetailedVersionInfoCommand(_envService, _dialog, _logger);
+            _cloudHostedInstanceOpenChangeHistoryCommand = new CloudHostedInstanceOpenChangeHistoryCommand(_envService, _dialog, _logger);
+            _cloudHostedInstanceDeleteCommand = new CloudHostedInstanceDeleteCommand(_envService, _dialog, _logger);
+            _cloudHostedInstanceStartCommand = new CloudHostedInstanceStartCommand(_envService, _dialog, _logger);
+            _cloudHostedInstanceStopCommand = new CloudHostedInstanceStopCommand(_envService, _dialog, _logger);
+            _cloudHostedInstanceApplyPackageCommand = new CloudHostedInstanceApplyPackageCommand(packageService, _navigation, _dialog, _logger);
             WeakReferenceMessenger.Default.Register<SessionStateChangedMessage>(this);
         }
 
@@ -226,6 +257,17 @@ namespace ThreeLCS.ViewModels
             StartEnvironmentCommand.NotifyCanExecuteChanged();
             StopEnvironmentCommand.NotifyCanExecuteChanged();
             DeleteEnvironmentCommand.NotifyCanExecuteChanged();
+            ApplyPackageCommand.NotifyCanExecuteChanged();
+        }
+
+        private void NotifyEnvironmentSelectionCommands()
+        {
+            OpenRdpCommand.NotifyCanExecuteChanged();
+            DeleteEnvironmentCommand.NotifyCanExecuteChanged();
+            StartEnvironmentCommand.NotifyCanExecuteChanged();
+            StopEnvironmentCommand.NotifyCanExecuteChanged();
+            AddNsgRuleCommand.NotifyCanExecuteChanged();
+            DeleteNsgRuleCommand.NotifyCanExecuteChanged();
             ApplyPackageCommand.NotifyCanExecuteChanged();
         }
 
@@ -445,114 +487,28 @@ namespace ThreeLCS.ViewModels
         private async Task ShowBackgroundTasks() => await _navigation.ShowBackgroundTasksAsync();
 
         [RelayCommand]
-        private void LogonToApplication()
-        {
-            var row = ActiveEnvInstance is not null ? ActiveCheRow ?? SelectedSaasRow : null;
-            var instance = ActiveEnvInstance;
-            _logger.LogDebug("LogonToApplication clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            using var scope = EnvProjectScope(row);
-            var link = instance.NavigationLinks?.FirstOrDefault(l => l.DisplayName == "Log on to environment");
-            if (link?.NavigationUri != null)
-            {
-                _logger.LogDebug("Opening logon URL: {Url}", link.NavigationUri);
-                Infrastructure.WebBrowserHelper.OpenUri(link.NavigationUri);
-            }
-            else
-            {
-                _dialog.ShowInfo("No logon URL available for this environment.");
-            }
-        }
+        private void LogonToApplication() => _cloudHostedInstanceLogonCommand.Execute(CreateEnvironmentCommandContext());
 
         [RelayCommand]
-        private void OpenInstanceDetails()
-        {
-            var row = ActiveCheRow ?? SelectedSaasRow;
-            var instance = ActiveEnvInstance;
-            _logger.LogDebug("OpenInstanceDetails clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            using var scope = EnvProjectScope(row);
-            var url = _envService.GetEnvironmentDetailsUrl(instance);
-            _logger.LogDebug("Opening instance details URL: {Url}", url);
-            Infrastructure.WebBrowserHelper.OpenUri(url);
-        }
+        private void OpenInstanceDetails() => _cloudHostedInstanceOpenDetailsCommand.Execute(CreateEnvironmentCommandContext());
 
         [RelayCommand]
-        private void OpenEnvironmentMonitoring()
-        {
-            var row = ActiveCheRow ?? SelectedSaasRow;
-            var instance = ActiveEnvInstance;
-            _logger.LogDebug("OpenEnvironmentMonitoring clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            using var scope = EnvProjectScope(row);
-            Infrastructure.WebBrowserHelper.OpenUri(_envService.GetEnvironmentMonitoringUrl(instance));
-        }
+        private void OpenEnvironmentMonitoring() => _cloudHostedInstanceOpenMonitoringCommand.Execute(CreateEnvironmentCommandContext());
 
         [RelayCommand]
-        private void OpenDetailedVersionInfo()
-        {
-            var row = ActiveCheRow ?? SelectedSaasRow;
-            var instance = ActiveEnvInstance;
-            _logger.LogDebug("OpenDetailedVersionInfo clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            using var scope = EnvProjectScope(row);
-            Infrastructure.WebBrowserHelper.OpenUri(_envService.GetDetailedVersionInfoUrl(instance));
-        }
+        private void OpenDetailedVersionInfo() => _cloudHostedInstanceOpenDetailedVersionInfoCommand.Execute(CreateEnvironmentCommandContext());
 
         [RelayCommand]
-        private void OpenEnvironmentChangeHistory()
-        {
-            var row = ActiveCheRow ?? SelectedSaasRow;
-            var instance = ActiveEnvInstance;
-            _logger.LogDebug("OpenEnvironmentChangeHistory clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            using var scope = EnvProjectScope(row);
-            Infrastructure.WebBrowserHelper.OpenUri(_envService.GetEnvironmentChangeHistoryUrl(instance));
-        }
+        private void OpenEnvironmentChangeHistory() => _cloudHostedInstanceOpenChangeHistoryCommand.Execute(CreateEnvironmentCommandContext());
 
         [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
-        private async Task DeleteEnvironment()
-        {
-            var row = ActiveCheRow;
-            var instance = ActiveCheInstance;
-            _logger.LogDebug("DeleteEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            if (!_dialog.ShowConfirm($"Delete environment {instance.DisplayName}?")) return;
-            bool ok;
-            using (EnvProjectScope(row))
-                ok = await _runner.RunAsCommandAsync(new DeleteEnvironmentJob(_envService, instance), this, _dialog);
-            if (ok)
-            {
-                _dialog.ShowInfo("Environment deleted.");
-                await Refresh();
-            }
-        }
+        private async Task DeleteEnvironment() => await _cloudHostedInstanceDeleteCommand.ExecuteAsync(CreateEnvironmentCommandContext());
 
         [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
-        private async Task StartEnvironment()
-        {
-            var row = ActiveCheRow;
-            var instance = ActiveCheInstance;
-            _logger.LogDebug("StartEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            bool ok;
-            using (EnvProjectScope(row))
-                ok = await _runner.RunAsCommandAsync(new StartEnvironmentJob(_envService, instance), this, _dialog);
-            if (ok) await Refresh();
-        }
+        private async Task StartEnvironment() => await _cloudHostedInstanceStartCommand.ExecuteAsync(CreateEnvironmentCommandContext());
 
         [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
-        private async Task StopEnvironment()
-        {
-            var row = ActiveCheRow;
-            var instance = ActiveCheInstance;
-            _logger.LogDebug("StopEnvironment clicked. SelectedCheInstance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            bool ok;
-            using (EnvProjectScope(row))
-                ok = await _runner.RunAsCommandAsync(new StopEnvironmentJob(_envService, instance), this, _dialog);
-            if (ok) await Refresh();
-        }
+        private async Task StopEnvironment() => await _cloudHostedInstanceStopCommand.ExecuteAsync(CreateEnvironmentCommandContext());
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private async Task AddNsgRule()
@@ -580,35 +536,7 @@ namespace ThreeLCS.ViewModels
         }
 
         [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
-        private async Task ApplyPackage()
-        {
-            var row = ActiveCheRow;
-            var instance = ActiveCheInstance;
-            _logger.LogDebug("ApplyPackage clicked. Instance={Instance}", instance?.DisplayName ?? "<null>");
-            if (instance == null) return;
-            var package = await _navigation.ShowChoosePackageAsync(instance);
-            if (package == null) return;
-
-            var confirmMsg =
-                $"You are about to deploy the following package to environment '{instance.DisplayName}':\n\n" +
-                $"  Package:    {package.Name}\n" +
-                $"  Type:       {package.PackageType}\n" +
-                $"  App ver.:   {package.AppVersion}\n" +
-                $"  Platform:   {package.PlatformVersion}\n\n" +
-                $"This operation may cause downtime and cannot be easily reverted.\n\n" +
-                $"Are you sure you want to continue?";
-            if (!_dialog.ShowConfirm(confirmMsg, "Confirm package deployment"))
-            {
-                _logger.LogDebug("ApplyPackage cancelled by user at confirmation prompt.");
-                return;
-            }
-
-            var job = new ApplyPackageJob(_packageService, instance, package);
-            using (EnvProjectScope(row))
-                await _runner.RunAsCommandAsync(job, this, _dialog);
-            if (!string.IsNullOrEmpty(job.Log))
-                await _navigation.ShowLogDisplayAsync(job.Log);
-        }
+        private async Task ApplyPackage() => await _cloudHostedInstanceApplyPackageCommand.ExecuteAsync(CreateEnvironmentCommandContext());
 
         [RelayCommand(CanExecute = nameof(IsLoggedIn))]
         private void ExportToCsv()
@@ -778,6 +706,19 @@ namespace ThreeLCS.ViewModels
             if (!wasFav)
                 await RefreshFavouritesAsync();
         }
+
+        private EnvironmentCommandContext CreateEnvironmentCommandContext() => new()
+        {
+            BusyHost = this,
+            SelectedTabIndex = SelectedTabIndex,
+            ActiveCheRow = ActiveCheRow,
+            SelectedCheRow = SelectedCheRow,
+            SelectedSaasRow = SelectedSaasRow,
+            SelectedCheRows = SelectedCheRows.ToList(),
+            SelectedSaasRows = SelectedSaasRows.ToList(),
+            BeginProjectScope = EnvProjectScope,
+            RefreshAsync = Refresh
+        };
 
         private async Task RefreshFavouritesAsync()
         {
