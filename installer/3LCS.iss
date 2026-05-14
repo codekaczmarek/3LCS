@@ -33,6 +33,9 @@ SetupIconFile=..\3LCS\Assets\favicon-white.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+LicenseFile=..\LICENSE
+InfoBeforeFile=intro.txt
+DisableWelcomePage=no
 ; Uninstall info stored per-user
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
@@ -49,6 +52,10 @@ ChangesAssociations=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Messages]
+WelcomeLabel1=Welcome to the {#MyAppName} Setup Wizard
+WelcomeLabel2=This wizard will install {#MyAppName} {#MyAppVersion} on your computer.%n%n{#MyAppName} is a free, open-source desktop client for Microsoft Dynamics 365 Lifecycle Services. It lets you manage environments, packages, diagnostics, and more — right from your Windows desktop.%n%nNo administrator rights are required. {#MyAppName} installs for your user account only.%n%nClick Next to continue.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
