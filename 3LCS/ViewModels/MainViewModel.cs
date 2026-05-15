@@ -42,6 +42,8 @@ namespace ThreeLCS.ViewModels
         private readonly CloudHostedInstanceOpenMonitoringCommand _cloudHostedInstanceOpenMonitoringCommand;
         private readonly CloudHostedInstanceOpenDetailedVersionInfoCommand _cloudHostedInstanceOpenDetailedVersionInfoCommand;
         private readonly CloudHostedInstanceOpenChangeHistoryCommand _cloudHostedInstanceOpenChangeHistoryCommand;
+        private readonly CloudHostedInstanceOpenEnvironmentChangesCommand _cloudHostedInstanceOpenEnvironmentChangesCommand;
+        private readonly CloudHostedInstanceOpenBuildInfoCommand _cloudHostedInstanceOpenBuildInfoCommand;
         private readonly CloudHostedInstanceDeleteCommand _cloudHostedInstanceDeleteCommand;
         private readonly CloudHostedInstanceStartCommand _cloudHostedInstanceStartCommand;
         private readonly CloudHostedInstanceStopCommand _cloudHostedInstanceStopCommand;
@@ -141,6 +143,8 @@ namespace ThreeLCS.ViewModels
             _cloudHostedInstanceOpenMonitoringCommand = new CloudHostedInstanceOpenMonitoringCommand(_envService, _dialog, _logger);
             _cloudHostedInstanceOpenDetailedVersionInfoCommand = new CloudHostedInstanceOpenDetailedVersionInfoCommand(_envService, _dialog, _logger);
             _cloudHostedInstanceOpenChangeHistoryCommand = new CloudHostedInstanceOpenChangeHistoryCommand(_envService, _dialog, _logger);
+            _cloudHostedInstanceOpenEnvironmentChangesCommand = new CloudHostedInstanceOpenEnvironmentChangesCommand(_navigation, _dialog, _logger);
+            _cloudHostedInstanceOpenBuildInfoCommand = new CloudHostedInstanceOpenBuildInfoCommand(_navigation, _dialog, _logger);
             _cloudHostedInstanceDeleteCommand = new CloudHostedInstanceDeleteCommand(_envService, _dialog, _logger);
             _cloudHostedInstanceStartCommand = new CloudHostedInstanceStartCommand(_envService, _dialog, _logger);
             _cloudHostedInstanceStopCommand = new CloudHostedInstanceStopCommand(_envService, _dialog, _logger);
@@ -501,6 +505,12 @@ namespace ThreeLCS.ViewModels
         [RelayCommand]
         private void OpenEnvironmentChangeHistory() => _cloudHostedInstanceOpenChangeHistoryCommand.Execute(CreateEnvironmentCommandContext());
 
+        [RelayCommand]
+        private async Task OpenEnvironmentChanges() => await _cloudHostedInstanceOpenEnvironmentChangesCommand.ExecuteAsync(CreateEnvironmentCommandContext());
+
+        [RelayCommand]
+        private async Task OpenBuildInfo() => await _cloudHostedInstanceOpenBuildInfoCommand.ExecuteAsync(CreateEnvironmentCommandContext());
+
         [RelayCommand(CanExecute = nameof(IsLoggedInAndCheActive))]
         private async Task DeleteEnvironment() => await _cloudHostedInstanceDeleteCommand.ExecuteAsync(CreateEnvironmentCommandContext());
 
@@ -566,14 +576,7 @@ namespace ThreeLCS.ViewModels
         private async Task UpcomingUpdates() => await _navigation.ShowUpcomingUpdatesAsync();
 
         [RelayCommand]
-        private async Task EnvironmentChanges()
-        {
-            var row = ActiveCheRow ?? SelectedSaasRow;
-            var instance = ActiveEnvInstance;
-            if (instance == null) return;
-            using var scope = EnvProjectScope(row);
-            await _navigation.ShowEnvironmentChangesAsync(instance);
-        }
+        private async Task EnvironmentChanges() => await OpenEnvironmentChanges();
 
         [RelayCommand]
         private async Task CustomLinks() => await _navigation.ShowCustomLinksAsync();
